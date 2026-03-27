@@ -33,7 +33,6 @@ async function getCard(id) {
 }
 
 async function saveCard(card) {
-  card.updatedAt = Date.now();
   return getDB().cards.put(card);
 }
 
@@ -51,7 +50,7 @@ async function getMeta(key) {
 }
 
 async function setMeta(key, value) {
-  return getDB().meta.put({ key, value, updatedAt: Date.now() });
+  return getDB().meta.put({ key, value });
 }
 
 async function updateStreak() {

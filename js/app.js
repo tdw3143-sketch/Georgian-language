@@ -38,7 +38,7 @@ async function init() {
       showScreen(s);
       if (s === 'home')   renderHome();
       if (s === 'browse') renderBrowse();
-      if (s === 'stats')  { renderStats(); renderSyncSection(); }
+      if (s === 'stats')  renderStats();
     });
   });
 
@@ -73,9 +73,6 @@ async function init() {
 
   showScreen('home');
   renderHome();
-
-  // Background sync on startup (silent – won't block anything)
-  doFullSync();
 }
 
 document.addEventListener('DOMContentLoaded', init);

@@ -493,21 +493,3 @@ nav button svg { width: 22px; height: 22px; }
   font-weight: 700;
   margin-bottom: 20px;
 }
-
-/* ── SYNC ── */
-.sync-form, .sync-logged-in { display: flex; flex-direction: column; gap: 10px; }
-.sync-input {
-  background: var(--surface);
-  border: 1px solid var(--surface2);
-  border-radius: var(--radius);
-  color: var(--text);
-  font-size: 16px;
-  padding: 12px 16px;
-  outline: none;
-}
-.sync-input:focus { border-color: var(--accent); }
-.sync-btns { display: flex; gap: 10px; }
-.sync-btns .btn { flex: 1; }
-.sync-error { color: var(--red); font-size: 13px; min-height: 16px; }
-.sync-status { color: var(--green); font-size: 13px; min-height: 16px; }
-.sync-email { font-size: 13px; color: var(--text2); }
