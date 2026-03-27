@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f0f1a" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>Georgian Verbs</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<div id="app">
+
+  <!-- ── HOME ──────────────────────────────────────────── -->
+  <div id="home-screen" class="screen">
+    <div class="home-header">
+      <h1>Georgian Verbs</h1>
+      <p>Daily verb practice</p>
+    </div>
+
+    <div class="streak-card">
+      <div class="streak-icon">🔥</div>
+      <div class="streak-info">
+        <h2 id="home-streak">0</h2>
+        <p id="home-streak-label">day streak</p>
+      </div>
+    </div>
+
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="val" id="home-due">—</div>
+        <div class="lbl">Due today</div>
+      </div>
+      <div class="stat-card">
+        <div class="val" id="home-verbs">—</div>
+        <div class="lbl">Verbs started</div>
+      </div>
+      <div class="stat-card">
+        <div class="val" id="home-cards">—</div>
+        <div class="lbl">Total cards</div>
+      </div>
+      <div class="stat-card">
+        <div class="val">5</div>
+        <div class="lbl">New / day</div>
+      </div>
+    </div>
+
+    <div class="start-btn-wrap">
+      <button class="btn btn-primary" id="start-study-btn" disabled>Loading…</button>
+    </div>
+  </div>
+
+  <!-- ── STUDY ─────────────────────────────────────────── -->
+  <div id="study-screen" class="screen">
+    <div class="loading"><div class="spinner"></div><p>Loading…</p></div>
+  </div>
+
+  <!-- ── BROWSE ────────────────────────────────────────── -->
+  <div id="browse-screen" class="screen">
+    <div class="screen-title">Verb Library</div>
+    <input id="browse-search" class="search-input" type="search" placeholder="Search verbs…" />
+    <div id="verb-list" class="verb-list">
+      <div class="loading"><div class="spinner"></div></div>
+    </div>
+  </div>
+
+  <!-- ── VERB DETAIL ────────────────────────────────────── -->
+  <div id="verb-detail" class="screen" style="display:none">
+    <div class="verb-detail-header">
+      <button class="back-btn" id="verb-detail-back">&#8592;</button>
+      <div>
+        <h2 id="detail-infinitive">—</h2>
+        <p id="detail-english">—</p>
+      </div>
+    </div>
+    <div id="tense-sections" style="overflow-y:auto;flex:1;padding-bottom:16px"></div>
+  </div>
+
+  <!-- ── STATS ─────────────────────────────────────────── -->
+  <div id="stats-screen" class="screen">
+    <div class="screen-title">Your Progress</div>
+
+    <div class="stats-section">
+      <div class="big-stats">
+        <div class="big-stat">
+          <div class="n" id="stats-streak">—</div>
+          <div class="l">Streak</div>
+        </div>
+        <div class="big-stat">
+          <div class="n" id="stats-verbs-learning">—</div>
+          <div class="l">Verbs</div>
+        </div>
+        <div class="big-stat">
+          <div class="n" id="stats-total-cards">—</div>
+          <div class="l">Cards</div>
+        </div>
+      </div>
+      <div class="big-stats" style="margin-top:0">
+        <div class="big-stat" style="grid-column:span 3">
+          <div class="n" id="stats-due">—</div>
+          <div class="l">Due today</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="stats-section">
+      <h3>Tense mastery</h3>
+      <div id="tense-progress" class="tense-progress"></div>
+    </div>
+  </div>
+
+  <!-- ── NAV ───────────────────────────────────────────── -->
+  <nav>
+    <button data-screen="home">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
+        <polyline points="9 22 9 12 15 12 15 22"/>
+      </svg>
+      Home
+    </button>
+    <button id="nav-study">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polygon points="5 3 19 12 5 21 5 3"/>
+      </svg>
+      Study
+    </button>
+    <button data-screen="browse">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M4 19.5A2.5 2.5 0 016.5 17H20"/>
+        <path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/>
+      </svg>
+      Browse
+    </button>
+    <button data-screen="stats">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <line x1="18" y1="20" x2="18" y2="10"/>
+        <line x1="12" y1="20" x2="12" y2="4"/>
+        <line x1="6"  y1="20" x2="6"  y2="14"/>
+      </svg>
+      Stats
+    </button>
+  </nav>
+
+</div>
+
+<div id="toast" class="toast"></div>
+
+<!-- Dependencies -->
+<script src="https://cdn.jsdelivr.net/npm/dexie@3/dist/dexie.min.js"></script>
+
+<!-- App (plain scripts, load in dependency order) -->
+<script src="js/srs.js"></script>
+<script src="js/db.js"></script>
+<script src="js/study.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
