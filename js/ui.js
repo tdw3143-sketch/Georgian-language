@@ -222,6 +222,7 @@ function showRatingButtons(wasCorrect, correct) {
 }
 
 function renderSessionDone() {
+  doFullSync(); // background sync after each session
   const { correct, reviewed } = sessionStats();
   const pct = reviewed > 0 ? Math.round((correct / reviewed) * 100) : 0;
   const screen = document.getElementById('study-screen');
@@ -328,6 +329,70 @@ function filterVerbs(query) {
     v.english.toLowerCase().includes(q) || v.infinitive.includes(q)
   );
   renderVerbList(filtered);
+}
+
+// ── SYNC UI ────────────────────────────────────────────────────────────────────
+function renderSyncSection() {
+  const el = document.getElementById('sync-section');
+  if (!el) return;
+
+  if (syncLoggedIn()) {
+    el.innerHTML = `
+      <h3>Sync</h3>
+      <div class="sync-logged-in">
+        <p class="sync-email">${syncGetEmail() || 'Logged in'}</p>
+        <div class="sync-btns">
+          <button class="btn btn-primary" id="sync-now-btn">Sync now</button>
+          <button class="btn btn-secondary" id="sync-logout-btn">Log out</button>
+        </div>
+        <p class="sync-status" id="sync-status"></p>
+      </div>`;
+    document.getElementById('sync-now-btn').onclick = async () => {
+      const btn = document.getElementById('sync-now-btn');
+      const status = document.getElementById('sync-status');
+      btn.disabled = true;
+      btn.textContent = 'Syncing…';
+      const ok = await doFullSync();
+      btn.disabled = false;
+      btn.textContent = 'Sync now';
+      status.textContent = ok ? 'Synced ✓' : 'Sync failed – check connection';
+    };
+    document.getElementById('sync-logout-btn').onclick = () => {
+      syncLogout();
+      renderSyncSection();
+    };
+  } else {
+    el.innerHTML = `
+      <h3>Sync progress across devices</h3>
+      <div class="sync-form">
+        <input class="sync-input" id="sync-email" type="email" placeholder="Email" autocomplete="email" />
+        <input class="sync-input" id="sync-pass"  type="password" placeholder="Password (min 6 chars)" autocomplete="current-password" />
+        <p class="sync-error" id="sync-error"></p>
+        <div class="sync-btns">
+          <button class="btn btn-primary"   id="sync-login-btn">Log in</button>
+          <button class="btn btn-secondary" id="sync-register-btn">Register</button>
+        </div>
+      </div>`;
+
+    async function doAuth(fn) {
+      const email = document.getElementById('sync-email').value.trim();
+      const pass  = document.getElementById('sync-pass').value;
+      const errEl = document.getElementById('sync-error');
+      errEl.textContent = '';
+      if (!email || !pass) { errEl.textContent = 'Enter email and password.'; return; }
+      try {
+        await fn(email, pass);
+        await doFullSync();
+        renderSyncSection();
+        showToast('Synced!');
+      } catch (e) {
+        errEl.textContent = e.message;
+      }
+    }
+
+    document.getElementById('sync-login-btn').onclick    = () => doAuth(syncLogin);
+    document.getElementById('sync-register-btn').onclick = () => doAuth(syncRegister);
+  }
 }
 
 // ── STATS ──────────────────────────────────────────────────────────────────────

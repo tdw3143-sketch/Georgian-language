@@ -1,4 +1,4 @@
-const CACHE = 'georgian-v2';
+const CACHE = 'georgian-v3';
 
 // Works both at root (localhost) and a subpath (GitHub Pages)
 const BASE = self.location.pathname.replace(/\/sw\.js$/, '');
@@ -9,6 +9,7 @@ const ASSETS = [
   BASE + '/css/style.css',
   BASE + '/js/srs.js',
   BASE + '/js/db.js',
+  BASE + '/js/sync.js',
   BASE + '/js/study.js',
   BASE + '/js/ui.js',
   BASE + '/js/app.js',
