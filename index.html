@@ -110,6 +110,16 @@
       <div id="tense-progress" class="tense-progress"></div>
     </div>
 
+    <div class="stats-section">
+      <h3>Backup &amp; Restore</h3>
+      <p style="color:var(--text2);font-size:13px;margin:0 0 12px">Export your progress to transfer to another browser or device.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-secondary" id="export-btn">Export progress</button>
+        <button class="btn btn-secondary" id="import-btn">Import backup</button>
+      </div>
+      <input type="file" id="import-file" accept=".json" style="display:none">
+    </div>
+
   </div>
 
   <!-- ── NAV ───────────────────────────────────────────── -->

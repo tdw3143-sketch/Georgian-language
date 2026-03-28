@@ -81,3 +81,16 @@ async function getTotalCards() {
 async function getDueCount() {
   return getDB().cards.where('nextReview').belowOrEqual(Date.now()).count();
 }
+
+async function exportData() {
+  const db = getDB();
+  const [cards, meta] = await Promise.all([db.cards.toArray(), db.meta.toArray()]);
+  return JSON.stringify({ cards, meta, exportedAt: Date.now() }, null, 2);
+}
+
+async function importData(jsonString) {
+  const { cards, meta } = JSON.parse(jsonString);
+  const db = getDB();
+  if (cards?.length) await db.cards.bulkPut(cards);
+  if (meta?.length)  await db.meta.bulkPut(meta);
+}

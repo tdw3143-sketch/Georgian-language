@@ -2,6 +2,12 @@
 
 const NEW_VERBS_PER_DAY = 5;
 
+async function extendDailyLimit() {
+  const todayKey = new Date().toDateString();
+  const extra = (await getMeta('newVerbsExtra_' + todayKey)) || 0;
+  await setMeta('newVerbsExtra_' + todayKey, extra + NEW_VERBS_PER_DAY);
+}
+
 async function buildQueue() {
   const db = getDB();
   const now = Date.now();
@@ -10,10 +16,12 @@ async function buildQueue() {
   // Introduce new verbs today
   const todayKey = new Date().toDateString();
   const newTodayCount = (await getMeta('newVerbsToday_' + todayKey)) || 0;
+  const extraToday = (await getMeta('newVerbsExtra_' + todayKey)) || 0;
+  const dailyLimit = NEW_VERBS_PER_DAY + extraToday;
   const newCards = [];
 
-  if (newTodayCount < NEW_VERBS_PER_DAY) {
-    const slotsLeft = NEW_VERBS_PER_DAY - newTodayCount;
+  if (newTodayCount < dailyLimit) {
+    const slotsLeft = dailyLimit - newTodayCount;
     const verbs = await getVerbs(500);
     let introduced = 0;
 

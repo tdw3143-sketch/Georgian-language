@@ -56,17 +56,14 @@ async function init() {
   // Verb detail back button
   document.getElementById('verb-detail-back').addEventListener('click', hideVerbDetail);
 
-  // Keyboard shortcuts for rating (1=Again, 2=Hard, 3=Good, 4=Easy)
+  // Keyboard shortcuts for study screen
   document.addEventListener('keydown', e => {
     if (document.getElementById('study-screen')?.classList.contains('active')) {
-      const map = { '1': 0, '2': 1, '3': 2, '4': 3 };
-      if (map[e.key] !== undefined) {
-        const btns = document.querySelectorAll('.rating-btn');
-        if (btns.length === 4) btns[map[e.key]].click();
-      }
       if (e.key === 'Enter' || e.key === ' ') {
         const checkBtn = document.getElementById('check-btn');
-        if (checkBtn) checkBtn.click();
+        if (checkBtn) { checkBtn.click(); return; }
+        const nextBtn = document.querySelector('.next-btn');
+        if (nextBtn) nextBtn.click();
       }
     }
   });

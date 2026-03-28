@@ -90,10 +90,9 @@ function renderStudyCard() {
       <div class="card-area">
         <div class="verb-card">
           <div class="tense-label">${TENSE_LABELS[card.tense]}</div>
-          <div class="person-label">${PERSON_LABELS[card.person]}</div>
-          <div class="infinitive">${verb.infinitive}</div>
-          <div class="english">to ${verb.english}</div>
-          <div class="prompt">What is the <strong>${card.tense}</strong> form?</div>
+          <div class="english">${buildEnglishPhrase(card.person, card.tense, verb.english)}</div>
+          <div class="infinitive">${verb.conjugations?.present?.['3sg'] || verb.infinitive}</div>
+          <div class="prompt">How do you say this in Georgian?</div>
         </div>
         <div class="mode-toggle">
           <button data-mode="choice" class="${_studyMode === 'choice' ? 'active' : ''}">Multiple choice</button>
@@ -198,27 +197,12 @@ function showRatingButtons(wasCorrect, correct) {
     area.appendChild(reveal);
   }
 
-  const row = document.createElement('div');
-  row.className = 'rating-row';
-
-  const ratings = [
-    { q: 0, label: 'Again', sub: '<1d', cls: 'rating-again' },
-    { q: 1, label: 'Hard',  sub: '~1d', cls: 'rating-hard'  },
-    { q: 2, label: 'Good',  sub: '3d',  cls: 'rating-good'  },
-    { q: 3, label: 'Easy',  sub: 'long',cls: 'rating-easy'  },
-  ];
-
-  ratings.forEach(({ q, label, sub, cls }) => {
-    const btn = document.createElement('button');
-    btn.className = `rating-btn ${cls}`;
-    btn.innerHTML = `<span>${label}</span><span class="r-label">${sub}</span>`;
-    btn.onclick = () => {
-      submitRating(q).then(renderStudyCard);
-    };
-    row.appendChild(btn);
-  });
-
-  area.appendChild(row);
+  const btn = document.createElement('button');
+  btn.className = 'btn btn-primary next-btn';
+  btn.style.marginTop = '16px';
+  btn.textContent = wasCorrect ? 'Next' : 'Got it';
+  btn.onclick = () => submitRating(wasCorrect ? 2 : 0).then(renderStudyCard);
+  area.appendChild(btn);
 }
 
 function renderSessionDone() {
@@ -235,8 +219,10 @@ function renderSessionDone() {
         <div class="done-stat"><div class="n">${pct}%</div><div class="l">Accuracy</div></div>
         <div class="done-stat"><div class="n">${reviewed - correct}</div><div class="l">Missed</div></div>
       </div>
+      <button class="btn btn-secondary" id="more-btn">Study more</button>
       <button class="btn btn-primary" id="done-btn">Done</button>
     </div>`;
+  document.getElementById('more-btn').onclick = () => extendDailyLimit().then(initStudy);
   document.getElementById('done-btn').onclick = () => { showScreen('home'); renderHome(); };
 }
 
@@ -261,7 +247,7 @@ function renderVerbList(verbs) {
     row.className = 'verb-row';
     row.innerHTML = `
       <div>
-        <div class="geo">${v.infinitive}</div>
+        <div class="geo">${v.conjugations?.present?.['3sg'] || v.infinitive}</div>
         <div class="eng">to ${v.english}</div>
       </div>
       <div class="mastery" id="mastery-${v.id}">—</div>`;
@@ -290,7 +276,7 @@ async function showVerbDetail(verbId) {
   const detail = document.getElementById('verb-detail');
   detail.style.display = 'flex';
 
-  document.getElementById('detail-infinitive').textContent = verb.infinitive;
+  document.getElementById('detail-infinitive').textContent = verb.conjugations?.present?.['3sg'] || verb.infinitive;
   document.getElementById('detail-english').textContent = 'to ' + verb.english;
 
   document.getElementById('tense-sections').innerHTML = TENSE_ORDER.map(tense => {
@@ -340,6 +326,26 @@ async function renderStats() {
   document.getElementById('stats-total-cards').textContent = total;
   document.getElementById('stats-verbs-learning').textContent = introduced;
   document.getElementById('stats-due').textContent = due;
+
+  document.getElementById('export-btn').onclick = async () => {
+    const json = await exportData();
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `georgian-verbs-${new Date().toISOString().slice(0,10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+  document.getElementById('import-btn').onclick = () => document.getElementById('import-file').click();
+  document.getElementById('import-file').onchange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    await importData(await file.text());
+    e.target.value = '';
+    showToast('Progress imported!');
+    renderStats();
+  };
 
   const allCards = await getDB().cards.toArray();
   document.getElementById('tense-progress').innerHTML = TENSE_ORDER.map(tense => {
