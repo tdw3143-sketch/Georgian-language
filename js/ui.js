@@ -226,14 +226,92 @@ function renderSessionDone() {
   document.getElementById('done-btn').onclick = () => { showScreen('home'); renderHome(); };
 }
 
+// ── ADD VERB ───────────────────────────────────────────────────────────────────
+function showAddVerbScreen() {
+  document.getElementById('browse-screen').style.display = 'none';
+  const screen = document.getElementById('add-verb-screen');
+  screen.style.display = 'flex';
+  renderAddVerbForm();
+}
+
+function hideAddVerbScreen() {
+  document.getElementById('add-verb-screen').style.display = 'none';
+  document.getElementById('browse-screen').style.display = 'flex';
+}
+
+function renderAddVerbForm() {
+  const form = document.getElementById('add-verb-form');
+
+  let html = `
+    <div class="form-section">
+      <div class="form-section-title">English meaning</div>
+      <div class="form-field">
+        <input class="form-input" id="av-english" placeholder="e.g. be written"
+          type="text" autocomplete="off" autocorrect="off" spellcheck="false" />
+      </div>
+    </div>`;
+
+  TENSE_ORDER.forEach(tense => {
+    html += `
+      <div class="form-section">
+        <div class="form-section-title">${TENSE_LABELS[tense]}</div>
+        ${PERSONS.map(person => `
+          <div class="conj-row">
+            <span class="pers-label">${PERSON_LABELS[person]}</span>
+            <input class="conj-input" id="av-${tense}-${person}"
+              placeholder="—" autocomplete="off" autocorrect="off" spellcheck="false" />
+          </div>`).join('')}
+      </div>`;
+  });
+
+  html += `<button class="btn btn-primary" id="av-save-btn">Save verb</button>`;
+  form.innerHTML = html;
+  document.getElementById('av-save-btn').onclick = saveCustomVerb;
+  document.getElementById('av-english').focus();
+}
+
+async function saveCustomVerb() {
+  const english = document.getElementById('av-english').value.trim();
+  if (!english) { showToast('Enter an English meaning'); return; }
+
+  const conjugations = {};
+  let formCount = 0;
+  TENSE_ORDER.forEach(tense => {
+    conjugations[tense] = {};
+    PERSONS.forEach(person => {
+      const val = document.getElementById(`av-${tense}-${person}`)?.value.trim() || '';
+      conjugations[tense][person] = val;
+      if (val) formCount++;
+    });
+  });
+
+  if (formCount === 0) { showToast('Enter at least one verb form'); return; }
+
+  const displayForm = conjugations.present?.['3sg'] || english;
+  const verb = {
+    id: 'custom_' + Date.now(),
+    infinitive: displayForm,
+    english,
+    frequency_rank: 9000 + Date.now() % 1000,
+    custom: true,
+    conjugations,
+  };
+
+  await getDB().verbs.put(verb);
+  showToast('Verb added!');
+  hideAddVerbScreen();
+  renderBrowse();
+}
+
 // ── BROWSE ─────────────────────────────────────────────────────────────────────
 let _selectedVerbs = new Set();
 let _browseQuery = '';
 
 async function renderBrowse() {
-  _allVerbs = await getVerbs(500);
+  _allVerbs = await getVerbs(1000);
   renderVerbList(_allVerbs);
   updateSelectionBar();
+  document.getElementById('add-verb-btn').onclick = showAddVerbScreen;
   document.getElementById('study-selected-btn').onclick = initCustomStudy;
   document.getElementById('clear-selection-btn').onclick = () => {
     _selectedVerbs.clear();
@@ -291,7 +369,7 @@ function renderVerbList(verbs) {
 
     const main = document.createElement('div');
     main.className = 'verb-row-main';
-    main.innerHTML = `<div class="geo">${v.conjugations?.present?.['3sg'] || v.infinitive}</div><div class="eng">to ${v.english}</div>`;
+    main.innerHTML = `<div class="geo">${v.conjugations?.present?.['3sg'] || v.infinitive}${v.custom ? '<span class="custom-tag">custom</span>' : ''}</div><div class="eng">to ${v.english}</div>`;
     main.onclick = () => showVerbDetail(v.id);
 
     const mastery = document.createElement('div');

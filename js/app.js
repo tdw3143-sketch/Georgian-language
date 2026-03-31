@@ -56,6 +56,9 @@ async function init() {
   // Verb detail back button
   document.getElementById('verb-detail-back').addEventListener('click', hideVerbDetail);
 
+  // Add verb back button
+  document.getElementById('add-verb-back').addEventListener('click', hideAddVerbScreen);
+
   // Keyboard shortcuts for study screen
   document.addEventListener('keydown', e => {
     if (document.getElementById('study-screen')?.classList.contains('active')) {

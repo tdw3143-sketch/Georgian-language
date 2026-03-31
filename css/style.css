@@ -414,6 +414,62 @@ nav button svg { width: 22px; height: 22px; }
 .tense-row .bar-fill { height: 100%; background: var(--accent); border-radius: 4px; transition: width 0.5s; }
 .tense-row .pct { font-size: 12px; color: var(--text2); min-width: 36px; text-align: right; }
 
+/* ── BROWSE HEADER ── */
+.browse-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+/* ── ADD VERB FORM ── */
+.form-section { margin-bottom: 24px; }
+.form-section-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--accent2);
+  margin-bottom: 10px;
+}
+.form-field { margin-bottom: 12px; }
+.form-field label {
+  display: block;
+  font-size: 12px;
+  color: var(--text2);
+  margin-bottom: 4px;
+}
+.form-input, .conj-input {
+  background: var(--surface);
+  border: 1.5px solid var(--surface2);
+  border-radius: 12px;
+  color: var(--text);
+  padding: 12px 16px;
+  width: 100%;
+  outline: none;
+  font-size: 16px;
+  transition: border-color 0.15s;
+}
+.form-input:focus, .conj-input:focus { border-color: var(--accent); }
+.conj-input { font-size: 20px; padding: 10px 14px; border-radius: 10px; }
+.conj-row {
+  display: grid;
+  grid-template-columns: 70px 1fr;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.conj-row .pers-label { font-size: 13px; color: var(--text2); }
+.custom-tag {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(108,99,255,0.2);
+  color: var(--accent2);
+  margin-left: 6px;
+}
+
 /* ── VERB SELECTION ── */
 .verb-row-main { flex: 1; cursor: pointer; }
 .verb-row.selected { border: 2px solid var(--accent); }

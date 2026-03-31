@@ -59,7 +59,10 @@
 
   <!-- ── BROWSE ────────────────────────────────────────── -->
   <div id="browse-screen" class="screen">
-    <div class="screen-title">Verb Library</div>
+    <div class="browse-header">
+      <div class="screen-title" style="margin-bottom:0">Verb Library</div>
+      <button class="btn btn-secondary" id="add-verb-btn" style="width:auto;padding:8px 16px;font-size:13px">+ Add verb</button>
+    </div>
     <input id="browse-search" class="search-input" type="search" placeholder="Search verbs…" />
     <div id="verb-list" class="verb-list">
       <div class="loading"><div class="spinner"></div></div>
@@ -69,6 +72,15 @@
       <button class="btn btn-primary" id="study-selected-btn" style="width:auto;padding:12px 20px">Study selected</button>
       <button class="selection-clear" id="clear-selection-btn">✕</button>
     </div>
+  </div>
+
+  <!-- ── ADD VERB ──────────────────────────────────────── -->
+  <div id="add-verb-screen" class="screen" style="display:none">
+    <div class="verb-detail-header">
+      <button class="back-btn" id="add-verb-back">&#8592;</button>
+      <div><h2>Add verb</h2><p id="add-verb-subtitle" style="color:var(--text2);font-size:13px">Fill in the forms you know</p></div>
+    </div>
+    <div id="add-verb-form" style="overflow-y:auto;flex:1;padding-bottom:24px"></div>
   </div>
 
   <!-- ── VERB DETAIL ────────────────────────────────────── -->
