@@ -1,6 +1,6 @@
 // Study session engine
 
-const NEW_VERBS_PER_DAY = 5;
+const NEW_VERBS_PER_DAY = 2;
 
 async function extendDailyLimit() {
   const todayKey = new Date().toDateString();
@@ -73,6 +73,30 @@ async function checkTenseUnlocks() {
       }
     }
   }
+}
+
+async function buildCustomQueue(verbIds) {
+  const db = getDB();
+  const allCards = [];
+  for (const verbId of verbIds) {
+    let cards = await db.cards.where('verbId').equals(verbId).toArray();
+    if (cards.length === 0) {
+      for (const person of PERSONS) {
+        const card = newCard(verbId, 'present', person);
+        await saveCard(card);
+        allCards.push(card);
+      }
+    } else {
+      allCards.push(...cards);
+    }
+  }
+  return shuffle(allCards);
+}
+
+async function startCustomSession(verbIds) {
+  _queue = await buildCustomQueue(verbIds);
+  _index = 0; _correct = 0; _reviewed = 0;
+  return _queue.length;
 }
 
 // Session state

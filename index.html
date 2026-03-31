@@ -42,7 +42,7 @@
         <div class="lbl">Total cards</div>
       </div>
       <div class="stat-card">
-        <div class="val">5</div>
+        <div class="val">2</div>
         <div class="lbl">New / day</div>
       </div>
     </div>
@@ -63,6 +63,11 @@
     <input id="browse-search" class="search-input" type="search" placeholder="Search verbs…" />
     <div id="verb-list" class="verb-list">
       <div class="loading"><div class="spinner"></div></div>
+    </div>
+    <div id="selection-bar" class="selection-bar" style="display:none">
+      <span id="selection-count" class="selection-count"></span>
+      <button class="btn btn-primary" id="study-selected-btn" style="width:auto;padding:12px 20px">Study selected</button>
+      <button class="selection-clear" id="clear-selection-btn">✕</button>
     </div>
   </div>
 

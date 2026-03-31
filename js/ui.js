@@ -227,9 +227,52 @@ function renderSessionDone() {
 }
 
 // ── BROWSE ─────────────────────────────────────────────────────────────────────
+let _selectedVerbs = new Set();
+let _browseQuery = '';
+
 async function renderBrowse() {
   _allVerbs = await getVerbs(500);
   renderVerbList(_allVerbs);
+  updateSelectionBar();
+  document.getElementById('study-selected-btn').onclick = initCustomStudy;
+  document.getElementById('clear-selection-btn').onclick = () => {
+    _selectedVerbs.clear();
+    filterVerbs(_browseQuery);
+    updateSelectionBar();
+  };
+}
+
+function updateSelectionBar() {
+  const bar = document.getElementById('selection-bar');
+  if (!bar) return;
+  const n = _selectedVerbs.size;
+  bar.style.display = n > 0 ? 'flex' : 'none';
+  const countEl = document.getElementById('selection-count');
+  if (countEl) countEl.textContent = `${n} verb${n !== 1 ? 's' : ''} selected`;
+}
+
+async function initCustomStudy() {
+  const verbIds = Array.from(_selectedVerbs);
+  _selectedVerbs.clear();
+  updateSelectionBar();
+
+  const screen = document.getElementById('study-screen');
+  screen.innerHTML = `<div class="loading"><div class="spinner"></div><p>Loading session…</p></div>`;
+  showScreen('study');
+
+  const count = await startCustomSession(verbIds);
+  if (count === 0) {
+    screen.innerHTML = `
+      <div class="empty-state">
+        <div class="icon">🤔</div>
+        <h2>Nothing to study</h2>
+        <p>No cards found for selected verbs.</p>
+        <button class="btn btn-secondary" id="back-from-empty">Back</button>
+      </div>`;
+    document.getElementById('back-from-empty').onclick = () => { showScreen('browse'); renderBrowse(); };
+    return;
+  }
+  renderStudyCard();
 }
 
 function renderVerbList(verbs) {
@@ -244,23 +287,43 @@ function renderVerbList(verbs) {
   list.innerHTML = '';
   verbs.slice(0, 150).forEach(v => {
     const row = document.createElement('div');
-    row.className = 'verb-row';
-    row.innerHTML = `
-      <div>
-        <div class="geo">${v.conjugations?.present?.['3sg'] || v.infinitive}</div>
-        <div class="eng">to ${v.english}</div>
-      </div>
-      <div class="mastery" id="mastery-${v.id}">—</div>`;
-    row.onclick = () => showVerbDetail(v.id);
+    row.className = 'verb-row' + (_selectedVerbs.has(v.id) ? ' selected' : '');
+
+    const main = document.createElement('div');
+    main.className = 'verb-row-main';
+    main.innerHTML = `<div class="geo">${v.conjugations?.present?.['3sg'] || v.infinitive}</div><div class="eng">to ${v.english}</div>`;
+    main.onclick = () => showVerbDetail(v.id);
+
+    const mastery = document.createElement('div');
+    mastery.className = 'mastery';
+    mastery.id = 'mastery-' + v.id;
+    mastery.textContent = '—';
+
+    const circle = document.createElement('button');
+    circle.className = 'select-circle' + (_selectedVerbs.has(v.id) ? ' active' : '');
+    circle.textContent = _selectedVerbs.has(v.id) ? '✓' : '+';
+    circle.onclick = (e) => {
+      e.stopPropagation();
+      if (_selectedVerbs.has(v.id)) _selectedVerbs.delete(v.id);
+      else _selectedVerbs.add(v.id);
+      const sel = _selectedVerbs.has(v.id);
+      row.classList.toggle('selected', sel);
+      circle.classList.toggle('active', sel);
+      circle.textContent = sel ? '✓' : '+';
+      updateSelectionBar();
+    };
+
+    row.appendChild(main);
+    row.appendChild(mastery);
+    row.appendChild(circle);
     list.appendChild(row);
 
     getVerbCards(v.id).then(cards => {
-      const el = document.getElementById('mastery-' + v.id);
-      if (!el) return;
-      if (cards.length === 0) { el.textContent = 'New'; return; }
+      if (!document.getElementById('mastery-' + v.id)) return;
+      if (cards.length === 0) { mastery.textContent = 'New'; return; }
       const mastered = cards.filter(c => c.reps >= 3).length;
-      el.textContent = `${mastered}/${cards.length}`;
-      if (mastered === cards.length) el.classList.add('learned');
+      mastery.textContent = `${mastered}/${cards.length}`;
+      if (mastered === cards.length) mastery.classList.add('learned');
     });
   });
 }
@@ -309,6 +372,7 @@ function hideVerbDetail() {
 }
 
 function filterVerbs(query) {
+  _browseQuery = query;
   const q = query.toLowerCase();
   const filtered = _allVerbs.filter(v =>
     v.english.toLowerCase().includes(q) || v.infinitive.includes(q)
