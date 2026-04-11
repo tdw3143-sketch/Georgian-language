@@ -381,6 +381,9 @@ function renderSessionDone() {
       <button class="btn btn-secondary" id="more-btn">Study more</button>
       <button class="btn btn-primary" id="done-btn">Done</button>
     </div>`;
+  // Auto-save progress to Pi server after every session
+  syncToServer();
+
   if (missCount > 0) document.getElementById('review-mistakes-btn').onclick = renderMistakesReview;
   document.getElementById('more-btn').onclick = () => extendDailyLimit().then(initStudy);
   document.getElementById('done-btn').onclick = () => { showScreen('home'); renderHome(); };

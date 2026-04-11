@@ -108,6 +108,25 @@ def ocr():
         return jsonify({'error': str(e)}), 500
 
 
+# ── Progress sync ──────────────────────────────────────────────────────────────
+
+PROGRESS_FILE = ROOT / 'progress.json'
+
+@app.route('/api/progress', methods=['GET'])
+def get_progress():
+    if not PROGRESS_FILE.exists():
+        return jsonify({}), 404
+    return jsonify(json.loads(PROGRESS_FILE.read_text(encoding='utf-8')))
+
+@app.route('/api/progress', methods=['POST'])
+def save_progress():
+    data = request.get_json(force=True, silent=True)
+    if not data:
+        return jsonify({'error': 'No data'}), 400
+    PROGRESS_FILE.write_text(json.dumps(data), encoding='utf-8')
+    return jsonify({'ok': True})
+
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8000))
     print(f'Starting Georgian Language app on http://localhost:{port}')

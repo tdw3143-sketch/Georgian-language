@@ -30,6 +30,10 @@ async function init() {
     console.warn('Could not load verbs.json:', e);
   }
 
+  // Restore progress from Pi server if local DB is empty
+  const restored = await syncFromServer();
+  if (restored) showToast('Progress restored from server ✓');
+
   // Load settings (study mode default)
   const _initSettings = await getSettings();
   _studyMode = _initSettings.studyMode;
