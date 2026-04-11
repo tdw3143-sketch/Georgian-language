@@ -514,7 +514,11 @@ async function renderChapterDetail(chapterId) {
 
   const body = document.getElementById('chapter-detail-body');
 
-  // Build verb rows for linked verbs
+  // Split vocab into words and verbs
+  const vocabWords = vocabItems.filter(i => i.type !== 'verb');
+  const vocabVerbs = vocabItems.filter(i => i.type === 'verb');
+
+  // Build verb rows for linked verbs (from verb library)
   const verbIds = chapter.verbIds || [];
   _currentChapterVerbs = verbIds.length > 0
     ? await Promise.all(verbIds.map(id => getVerb(id)))
@@ -522,11 +526,9 @@ async function renderChapterDetail(chapterId) {
   const validVerbs = _currentChapterVerbs.filter(Boolean);
 
   // Mastery counts
-  let masteredVocab = 0;
   const vocabCardsData = await Promise.all(
     vocabItems.map(item => getCard(`vocab__${item.id}__g2e`))
   );
-  vocabCardsData.forEach(c => { if (c && c.reps >= 3) masteredVocab++; });
 
   const dueVocab = await Promise.all(
     vocabItems.map(async item => {
@@ -539,51 +541,59 @@ async function renderChapterDetail(chapterId) {
   );
   const dueCount = dueVocab.filter(Boolean).length + verbIds.length;
 
+  const vocabItemRow = (item) => {
+    const mastered = vocabCardsData[vocabItems.indexOf(item)]?.reps >= 3;
+    return `
+      <div class="vocab-item">
+        <div class="vocab-item-words">
+          <div class="vocab-item-georgian">${item.georgian}</div>
+          <div class="vocab-item-english">${item.english}</div>
+        </div>
+        <span class="vocab-type-badge">${VOCAB_TYPE_LABELS[item.type] || item.type}</span>
+        ${mastered ? '<span class="mastery-dot">✓</span>' : ''}
+        <button class="vocab-delete-btn" data-vocab-id="${item.id}">✕</button>
+      </div>`;
+  };
+
+  const totalVerbCount = validVerbs.length + vocabVerbs.length;
+
   body.innerHTML = `
     <button class="btn btn-primary" id="study-chapter-btn" style="margin-bottom:20px">
       Study Chapter${dueCount > 0 ? '  ·  ' + dueCount + ' due' : ''}
     </button>
 
     <div class="section-header">
-      <span class="section-title">Vocabulary (${vocabItems.length})</span>
+      <span class="section-title">Vocabulary (${vocabWords.length})</span>
       <div style="display:flex;gap:6px">
         <button class="btn btn-secondary" id="scan-btn" style="width:auto;padding:6px 12px;font-size:13px">📷 Scan</button>
         <button class="btn btn-secondary" id="add-word-btn" style="width:auto;padding:6px 14px;font-size:13px">+ Add</button>
       </div>
     </div>
     <div class="vocab-list" id="vocab-list-detail">
-      ${vocabItems.length === 0
-        ? '<p style="color:var(--text2);font-size:14px;padding:8px 0">No words yet — add your first word from the chapter.</p>'
-        : vocabItems.map(item => {
-            const mastered = vocabCardsData[vocabItems.indexOf(item)]?.reps >= 3;
-            return `
-              <div class="vocab-item">
-                <div class="vocab-item-words">
-                  <div class="vocab-item-georgian">${item.georgian}</div>
-                  <div class="vocab-item-english">${item.english}</div>
-                </div>
-                <span class="vocab-type-badge">${VOCAB_TYPE_LABELS[item.type] || item.type}</span>
-                ${mastered ? '<span class="mastery-dot">✓</span>' : ''}
-                <button class="vocab-delete-btn" data-vocab-id="${item.id}">✕</button>
-              </div>`;
-          }).join('')}
+      ${vocabWords.length === 0
+        ? '<p style="color:var(--text2);font-size:14px;padding:8px 0">No words yet — scan a page or add manually.</p>'
+        : vocabWords.map(vocabItemRow).join('')}
     </div>
 
     <div class="section-header" style="margin-top:20px">
-      <span class="section-title">Verbs (${validVerbs.length})</span>
-      <button class="btn btn-secondary" id="link-verb-btn" style="width:auto;padding:6px 14px;font-size:13px">+ Link verb</button>
+      <span class="section-title">Verbs (${totalVerbCount})</span>
+      <button class="btn btn-secondary" id="link-verb-btn" style="width:auto;padding:6px 14px;font-size:13px">+ Link</button>
     </div>
     <div class="vocab-list">
-      ${validVerbs.length === 0
-        ? '<p style="color:var(--text2);font-size:14px;padding:8px 0">No verbs linked yet.</p>'
-        : validVerbs.map(v => `
-            <div class="vocab-item">
-              <div class="vocab-item-words">
-                <div class="vocab-item-georgian">${v.conjugations?.present?.['3sg'] || v.infinitive}</div>
-                <div class="vocab-item-english">to ${v.english}</div>
-              </div>
-              <button class="vocab-delete-btn" data-unlink-verb="${v.id}">✕</button>
-            </div>`).join('')}
+      ${totalVerbCount === 0
+        ? '<p style="color:var(--text2);font-size:14px;padding:8px 0">No verbs yet.</p>'
+        : [
+            ...vocabVerbs.map(vocabItemRow),
+            ...validVerbs.map(v => `
+              <div class="vocab-item">
+                <div class="vocab-item-words">
+                  <div class="vocab-item-georgian">${v.conjugations?.present?.['3sg'] || v.infinitive}</div>
+                  <div class="vocab-item-english">to ${v.english}</div>
+                </div>
+                <span class="vocab-type-badge" style="background:rgba(34,197,94,0.12);color:var(--green)">conjugated</span>
+                <button class="vocab-delete-btn" data-unlink-verb="${v.id}">✕</button>
+              </div>`)
+          ].join('')}
     </div>
 
     <div style="margin-top:24px;padding-top:16px;border-top:1px solid var(--surface2)">
