@@ -604,6 +604,7 @@ async function renderChapterDetail(chapterId) {
     </div>`;
 
   document.getElementById('study-chapter-btn').onclick = () => initChapterStudy(chapterId);
+  document.getElementById('chapter-edit-btn').onclick = () => startEditChapterName(chapterId, chapter);
   document.getElementById('scan-btn').onclick = () => showScanPage(chapterId);
   document.getElementById('add-word-btn').onclick = () => showAddVocabForm(chapterId);
   document.getElementById('link-verb-btn').onclick = () => showLinkVerbPanel(chapterId);
@@ -631,6 +632,47 @@ async function renderChapterDetail(chapterId) {
       renderChapterDetail(chapterId);
     };
   });
+}
+
+function startEditChapterName(chapterId, chapter) {
+  const nameEl = document.getElementById('chapter-detail-name');
+  const editBtn = document.getElementById('chapter-edit-btn');
+  const current = chapter.name || '';
+
+  // Replace h2 with an input
+  const input = document.createElement('input');
+  input.className = 'form-input';
+  input.value = current;
+  input.placeholder = 'Chapter name (optional)';
+  input.style.fontSize = '18px';
+  input.style.padding = '8px 12px';
+  nameEl.replaceWith(input);
+  editBtn.textContent = '✓';
+  editBtn.title = 'Save';
+  input.focus();
+  input.select();
+
+  const save = async () => {
+    const newName = input.value.trim();
+    chapter.name = newName;
+    await saveChapter(chapter);
+    // Restore h2
+    const h2 = document.createElement('h2');
+    h2.id = 'chapter-detail-name';
+    h2.textContent = newName || 'Chapter ' + chapter.number;
+    input.replaceWith(h2);
+    editBtn.textContent = '✏️';
+    editBtn.title = 'Edit chapter name';
+    editBtn.onclick = () => startEditChapterName(chapterId, chapter);
+    // Update meta line
+    document.getElementById('chapter-detail-meta').textContent =
+      'Chapter ' + chapter.number + (newName ? ' · Biliki' : '');
+    showToast('Chapter renamed');
+    syncToServer();
+  };
+
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') save(); });
+  editBtn.onclick = save;
 }
 
 // ── ADD VOCAB FORM ─────────────────────────────────────────────────────────────
