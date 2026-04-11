@@ -69,7 +69,7 @@ def ocr():
     try:
         client = anthropic.Anthropic(api_key=api_key)
         message = client.messages.create(
-            model='claude-haiku-4-5',
+            model='claude-opus-4-6',
             max_tokens=2048,
             messages=[{
                 'role': 'user',
