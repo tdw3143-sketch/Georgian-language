@@ -546,7 +546,10 @@ async function renderChapterDetail(chapterId) {
 
     <div class="section-header">
       <span class="section-title">Vocabulary (${vocabItems.length})</span>
-      <button class="btn btn-secondary" id="add-word-btn" style="width:auto;padding:6px 14px;font-size:13px">+ Add word</button>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-secondary" id="scan-btn" style="width:auto;padding:6px 12px;font-size:13px">📷 Scan</button>
+        <button class="btn btn-secondary" id="add-word-btn" style="width:auto;padding:6px 14px;font-size:13px">+ Add</button>
+      </div>
     </div>
     <div class="vocab-list" id="vocab-list-detail">
       ${vocabItems.length === 0
@@ -588,6 +591,7 @@ async function renderChapterDetail(chapterId) {
     </div>`;
 
   document.getElementById('study-chapter-btn').onclick = () => initChapterStudy(chapterId);
+  document.getElementById('scan-btn').onclick = () => showScanPage(chapterId);
   document.getElementById('add-word-btn').onclick = () => showAddVocabForm(chapterId);
   document.getElementById('link-verb-btn').onclick = () => showLinkVerbPanel(chapterId);
   document.getElementById('delete-chapter-btn').onclick = async () => {
@@ -1011,6 +1015,136 @@ async function renderStats() {
         <span class="pct">${pct}%</span>
       </div>`;
   }).join('');
+}
+
+// ── OCR / SCAN PAGE ───────────────────────────────────────────────────────────
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      // result is "data:image/jpeg;base64,XXXX" — strip the prefix
+      const b64 = reader.result.split(',')[1];
+      resolve({ b64, mediaType: file.type || 'image/jpeg' });
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function showScanPage(chapterId) {
+  const input = document.getElementById('ocr-file-input');
+  input.value = '';
+  input.onchange = async () => {
+    const file = input.files[0];
+    if (!file) return;
+    await runOcr(file, chapterId);
+  };
+  input.click();
+}
+
+async function runOcr(file, chapterId) {
+  // Show OCR review screen with a spinner while we call the API
+  document.getElementById('chapter-detail').style.display = 'none';
+  const overlay = document.getElementById('ocr-review');
+  overlay.style.display = 'flex';
+  document.getElementById('ocr-review-meta').textContent = 'Scanning…';
+  document.getElementById('ocr-word-list').innerHTML =
+    '<div class="loading" style="flex:1"><div class="spinner"></div><p>Asking Claude…</p></div>';
+  document.getElementById('ocr-save-btn').disabled = true;
+  document.getElementById('ocr-review-back').onclick = () => {
+    overlay.style.display = 'none';
+    document.getElementById('chapter-detail').style.display = 'flex';
+  };
+
+  try {
+    const { b64, mediaType } = await fileToBase64(file);
+    const res = await fetch('/api/ocr', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ image: b64, mediaType }),
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || 'Server error');
+    renderOcrReview(json.words || [], chapterId);
+  } catch (e) {
+    document.getElementById('ocr-review-meta').textContent = 'Error';
+    document.getElementById('ocr-word-list').innerHTML = `
+      <div class="empty-state">
+        <div class="icon">⚠️</div>
+        <h2>Scan failed</h2>
+        <p>${e.message}</p>
+      </div>`;
+  }
+}
+
+function renderOcrReview(words, chapterId) {
+  const meta = document.getElementById('ocr-review-meta');
+  const list = document.getElementById('ocr-word-list');
+  const saveBtn = document.getElementById('ocr-save-btn');
+  const selAllBtn = document.getElementById('ocr-select-all-btn');
+
+  if (words.length === 0) {
+    meta.textContent = 'No words found';
+    list.innerHTML = `
+      <div class="empty-state">
+        <div class="icon">🔍</div>
+        <h2>Nothing recognised</h2>
+        <p>Try a clearer photo of the vocabulary section.</p>
+      </div>`;
+    saveBtn.disabled = true;
+    return;
+  }
+
+  meta.textContent = `${words.length} word${words.length !== 1 ? 's' : ''} found — tap to select`;
+  saveBtn.disabled = false;
+
+  // All words selected by default
+  const selected = new Set(words.map((_, i) => i));
+
+  const render = () => {
+    list.innerHTML = '';
+    words.forEach((w, i) => {
+      const checked = selected.has(i);
+      const item = document.createElement('div');
+      item.className = 'ocr-word-item' + (checked ? ' selected' : '');
+      item.innerHTML = `
+        <div class="ocr-check">${checked ? '✓' : ''}</div>
+        <div class="vocab-item-words" style="flex:1">
+          <div class="vocab-item-georgian">${w.georgian}</div>
+          <div class="vocab-item-english">${w.english}</div>
+        </div>
+        <span class="vocab-type-badge">${VOCAB_TYPE_LABELS[w.type] || w.type}</span>`;
+      item.onclick = () => {
+        if (selected.has(i)) selected.delete(i);
+        else selected.add(i);
+        render();
+        saveBtn.disabled = selected.size === 0;
+      };
+      list.appendChild(item);
+    });
+  };
+
+  render();
+
+  selAllBtn.onclick = () => {
+    if (selected.size === words.length) selected.clear();
+    else words.forEach((_, i) => selected.add(i));
+    render();
+    saveBtn.disabled = selected.size === 0;
+  };
+
+  saveBtn.onclick = async () => {
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Saving…';
+    for (const i of selected) {
+      await saveVocabItem({ ...words[i], chapterId });
+    }
+    showToast(`${selected.size} word${selected.size !== 1 ? 's' : ''} saved!`);
+    document.getElementById('ocr-review').style.display = 'none';
+    document.getElementById('chapter-detail').style.display = 'flex';
+    renderChapterDetail(chapterId);
+  };
 }
 
 // ── SETTINGS ──────────────────────────────────────────────────────────────────

@@ -867,6 +867,42 @@ nav button svg { width: 22px; height: 22px; }
 .link-verb-row { cursor: default; }
 .link-verb-row:active { background: var(--surface); }
 
+/* ── OCR REVIEW ── */
+.ocr-word-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--surface);
+  border-radius: 12px;
+  padding: 12px 16px;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: border-color 0.15s, background 0.15s;
+}
+.ocr-word-item.selected {
+  border-color: var(--accent);
+  background: rgba(108,99,255,0.08);
+}
+.ocr-check {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2px solid var(--surface2);
+  background: none;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: border-color 0.15s, background 0.15s;
+}
+.ocr-word-item.selected .ocr-check {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
 /* ── VOCAB CHOICE BUTTONS (full-width, text-sized) ── */
 .choice-grid.vocab-choices {
   grid-template-columns: 1fr;

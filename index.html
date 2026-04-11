@@ -90,6 +90,25 @@
     </div>
   </div>
 
+  <!-- ── OCR REVIEW (overlay) ─────────────────────────── -->
+  <div id="ocr-review" class="screen" style="display:none">
+    <div class="verb-detail-header">
+      <button class="back-btn" id="ocr-review-back">&#8592;</button>
+      <div>
+        <h2>Scanned Words</h2>
+        <p id="ocr-review-meta" style="color:var(--text2);font-size:13px">Select words to add</p>
+      </div>
+    </div>
+    <div id="ocr-word-list" style="overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:8px;padding-bottom:8px"></div>
+    <div style="display:flex;gap:8px;padding-top:12px;flex-shrink:0">
+      <button class="btn btn-secondary" id="ocr-select-all-btn" style="flex:0 0 auto;width:auto;padding:12px 16px;font-size:13px">All</button>
+      <button class="btn btn-primary" id="ocr-save-btn">Save selected</button>
+    </div>
+  </div>
+
+  <!-- hidden camera/file input -->
+  <input type="file" id="ocr-file-input" accept="image/*" capture="environment" style="display:none" />
+
   <!-- ── ADD VOCAB WORD (overlay) ──────────────────────── -->
   <div id="vocab-add" class="screen" style="display:none">
     <div class="verb-detail-header">
