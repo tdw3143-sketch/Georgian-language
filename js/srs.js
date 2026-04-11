@@ -95,11 +95,11 @@ function buildEnglishPhrase(person, tense, verbEnglish) {
   }
 }
 
-function newCard(verbId, tense, person) {
+function newCard(verbId, tense, person, ease = 2.5) {
   return {
     id: `${verbId}__${tense}__${person}`,
     verbId, tense, person,
-    ease: 2.5, interval: 1, reps: 0,
+    ease, interval: 1, reps: 0,
     nextReview: Date.now(),
     lastReviewed: null,
     introduced: 1,

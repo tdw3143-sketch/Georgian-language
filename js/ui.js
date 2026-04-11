@@ -1,9 +1,30 @@
 // UI — screen routing, rendering, event handling
-// All event listeners use data attributes instead of inline onclick with Georgian text
 
-let _studyMode = 'choice';  // 'choice' | 'type'
+let _studyMode = 'choice';  // 'choice' | 'type' — initialised from settings
 let _allVerbs = [];
-let _pendingCorrect = null;  // correct answer for current card
+let _pendingCorrect = null;
+let _pendingCard = null;
+let _pendingVerb = null;
+let _sessionMistakes = [];  // {card, verb, typed, correct}
+
+// ── LEVENSHTEIN ────────────────────────────────────────────────────────────────
+function levenshtein(a, b) {
+  const m = a.length, n = b.length;
+  if (m === 0) return n;
+  if (n === 0) return m;
+  const dp = [];
+  for (let i = 0; i <= m; i++) {
+    dp[i] = new Array(n + 1).fill(0);
+    dp[i][0] = i;
+  }
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+  for (let i = 1; i <= m; i++)
+    for (let j = 1; j <= n; j++)
+      dp[i][j] = a[i-1] === b[j-1]
+        ? dp[i-1][j-1]
+        : 1 + Math.min(dp[i-1][j], dp[i][j-1], dp[i-1][j-1]);
+  return dp[m][n];
+}
 
 // ── ROUTING ────────────────────────────────────────────────────────────────────
 function showScreen(name) {
@@ -25,8 +46,8 @@ function showToast(msg) {
 
 // ── HOME ───────────────────────────────────────────────────────────────────────
 async function renderHome() {
-  const [due, streak, introduced, total] = await Promise.all([
-    getDueCount(), getStreak(), countIntroducedVerbs(), getTotalCards()
+  const [due, streak, introduced, total, settings] = await Promise.all([
+    getDueCount(), getStreak(), countIntroducedVerbs(), getTotalCards(), getSettings()
   ]);
   document.getElementById('home-streak').textContent = streak;
   document.getElementById('home-streak-label').textContent =
@@ -34,6 +55,7 @@ async function renderHome() {
   document.getElementById('home-due').textContent = due;
   document.getElementById('home-verbs').textContent = introduced;
   document.getElementById('home-cards').textContent = total;
+  document.getElementById('home-new-per-day').textContent = settings.newVerbs;
 
   const btn = document.getElementById('start-study-btn');
   btn.disabled = false;
@@ -42,6 +64,7 @@ async function renderHome() {
 
 // ── STUDY SESSION ──────────────────────────────────────────────────────────────
 async function initStudy() {
+  _sessionMistakes = [];
   const screen = document.getElementById('study-screen');
   screen.innerHTML = `<div class="loading"><div class="spinner"></div><p>Loading session…</p></div>`;
   showScreen('study');
@@ -77,6 +100,8 @@ function renderStudyCard() {
 
     const correct = verb.conjugations?.[card.tense]?.[card.person] || '—';
     _pendingCorrect = correct;
+    _pendingCard = card;
+    _pendingVerb = verb;
 
     const screen = document.getElementById('study-screen');
     screen.innerHTML = `
@@ -107,7 +132,7 @@ function renderStudyCard() {
     });
 
     if (_studyMode === 'choice') renderChoiceMode(card, verb, correct);
-    else renderTypeMode(correct);
+    else renderTypeMode(card, verb, correct);
   });
 }
 
@@ -137,6 +162,10 @@ function handleChoiceAnswer(e) {
   const correct = btn.dataset.correct;
   const isCorrect = chosen === correct;
 
+  if (!isCorrect && _pendingCard && _pendingVerb) {
+    _sessionMistakes.push({ card: _pendingCard, verb: _pendingVerb, typed: chosen, correct });
+  }
+
   document.querySelectorAll('.choice-btn').forEach(b => {
     b.disabled = true;
     if (b.dataset.answer === correct) b.classList.add(isCorrect && b === btn ? 'correct' : 'reveal');
@@ -147,7 +176,49 @@ function handleChoiceAnswer(e) {
   showRatingButtons(isCorrect, correct);
 }
 
-function renderTypeMode(correct) {
+// ── GEORGIAN KEYBOARD ──────────────────────────────────────────────────────────
+const GEO_ROWS = [
+  ['ა','ბ','გ','დ','ე','ვ','ზ','თ','ი'],
+  ['კ','ლ','მ','ნ','ო','პ','ჟ','რ','ს'],
+  ['ტ','უ','ფ','ქ','ღ','ყ','შ','ჩ','ც'],
+  ['ძ','წ','ჭ','ხ','ჯ','ჰ','⌫'],
+];
+
+function buildGeoKeyboard(input) {
+  const keyboard = document.createElement('div');
+  keyboard.className = 'geo-keyboard';
+  GEO_ROWS.forEach(row => {
+    const rowEl = document.createElement('div');
+    rowEl.className = 'geo-keyboard-row';
+    row.forEach(ch => {
+      const key = document.createElement('button');
+      key.type = 'button';
+      key.className = 'geo-key' + (ch === '⌫' ? ' backspace' : '');
+      key.textContent = ch;
+      key.addEventListener('pointerdown', e => {
+        e.preventDefault(); // prevent input losing focus
+        if (ch === '⌫') {
+          const pos = input.selectionStart;
+          const val = input.value;
+          if (pos > 0) {
+            input.value = val.slice(0, pos - 1) + val.slice(pos);
+            input.setSelectionRange(pos - 1, pos - 1);
+          }
+        } else {
+          const pos = input.selectionStart;
+          const val = input.value;
+          input.value = val.slice(0, pos) + ch + val.slice(pos);
+          input.setSelectionRange(pos + 1, pos + 1);
+        }
+      });
+      rowEl.appendChild(key);
+    });
+    keyboard.appendChild(rowEl);
+  });
+  return keyboard;
+}
+
+function renderTypeMode(card, verb, correct) {
   const area = document.getElementById('answer-area');
   if (!area) return;
 
@@ -170,11 +241,22 @@ function renderTypeMode(correct) {
 
   const doCheck = () => {
     const typed = input.value.trim();
-    const isCorrect = typed === correct;
+    if (!typed) { input.focus(); return; }
+
+    const isExact = typed === correct;
+    const isFuzzy = !isExact && levenshtein(typed, correct) <= 1;
+    const isCorrect = isExact || isFuzzy;
+
     input.disabled = true;
     checkBtn.remove();
     input.classList.add(isCorrect ? 'correct' : 'wrong');
-    showRatingButtons(isCorrect, correct);
+
+    if (!isCorrect) {
+      _sessionMistakes.push({ card, verb, typed, correct });
+    }
+    if (isFuzzy) showToast('Almost! Accepted');
+
+    showRatingButtons(isCorrect, correct, isFuzzy);
   };
 
   checkBtn.onclick = doCheck;
@@ -182,18 +264,19 @@ function renderTypeMode(correct) {
 
   wrap.appendChild(input);
   wrap.appendChild(checkBtn);
+  wrap.appendChild(buildGeoKeyboard(input));
   area.appendChild(wrap);
   input.focus();
 }
 
-function showRatingButtons(wasCorrect, correct) {
+function showRatingButtons(wasCorrect, correct, showCorrection = false) {
   const area = document.getElementById('answer-area');
   if (!area) return;
 
-  if (!wasCorrect) {
+  if (!wasCorrect || showCorrection) {
     const reveal = document.createElement('div');
     reveal.className = 'answer-reveal';
-    reveal.innerHTML = `<div class="correct-answer">${correct}</div><div class="answer-note">Correct answer</div>`;
+    reveal.innerHTML = `<div class="correct-answer">${correct}</div><div class="answer-note">${showCorrection ? 'Correct form' : 'Correct answer'}</div>`;
     area.appendChild(reveal);
   }
 
@@ -208,6 +291,7 @@ function showRatingButtons(wasCorrect, correct) {
 function renderSessionDone() {
   const { correct, reviewed } = sessionStats();
   const pct = reviewed > 0 ? Math.round((correct / reviewed) * 100) : 0;
+  const missCount = _sessionMistakes.length;
   const screen = document.getElementById('study-screen');
   screen.innerHTML = `
     <div class="session-done">
@@ -219,11 +303,45 @@ function renderSessionDone() {
         <div class="done-stat"><div class="n">${pct}%</div><div class="l">Accuracy</div></div>
         <div class="done-stat"><div class="n">${reviewed - correct}</div><div class="l">Missed</div></div>
       </div>
+      ${missCount > 0 ? `<button class="btn btn-secondary" id="review-mistakes-btn">Review ${missCount} mistake${missCount !== 1 ? 's' : ''}</button>` : ''}
       <button class="btn btn-secondary" id="more-btn">Study more</button>
       <button class="btn btn-primary" id="done-btn">Done</button>
     </div>`;
+  if (missCount > 0) document.getElementById('review-mistakes-btn').onclick = renderMistakesReview;
   document.getElementById('more-btn').onclick = () => extendDailyLimit().then(initStudy);
   document.getElementById('done-btn').onclick = () => { showScreen('home'); renderHome(); };
+}
+
+function renderMistakesReview() {
+  const screen = document.getElementById('study-screen');
+  const items = _sessionMistakes.map(m => {
+    const phrase = buildEnglishPhrase(m.card.person, m.card.tense, m.verb.english);
+    const verbDisplay = m.verb.conjugations?.present?.['3sg'] || m.verb.infinitive;
+    return `
+      <div class="mistake-card">
+        <div class="mistake-meta">
+          <span class="mistake-tense">${TENSE_LABELS[m.card.tense]}</span>
+          <span class="mistake-phrase">${phrase}</span>
+        </div>
+        <div class="mistake-verb">${verbDisplay}</div>
+        <div class="mistake-answers">
+          <span class="mistake-wrong">${m.typed || '—'}</span>
+          <span class="mistake-arrow">→</span>
+          <span class="mistake-right">${m.correct}</span>
+        </div>
+      </div>`;
+  }).join('');
+
+  screen.innerHTML = `
+    <div class="session-header">
+      <button class="exit-btn" id="exit-review">✕</button>
+      <span style="font-weight:700;font-size:15px">Mistakes (${_sessionMistakes.length})</span>
+    </div>
+    <div class="mistakes-list">${items}</div>
+    <button class="btn btn-primary" id="close-review-btn" style="margin-top:auto;flex-shrink:0">Done</button>`;
+
+  document.getElementById('exit-review').onclick = () => { showScreen('home'); renderHome(); };
+  document.getElementById('close-review-btn').onclick = () => { showScreen('home'); renderHome(); };
 }
 
 // ── ADD VERB ───────────────────────────────────────────────────────────────────
@@ -330,6 +448,7 @@ function updateSelectionBar() {
 }
 
 async function initCustomStudy() {
+  _sessionMistakes = [];
   const verbIds = Array.from(_selectedVerbs);
   _selectedVerbs.clear();
   updateSelectionBar();
@@ -501,4 +620,71 @@ async function renderStats() {
         <span class="pct">${pct}%</span>
       </div>`;
   }).join('');
+}
+
+// ── SETTINGS ──────────────────────────────────────────────────────────────────
+async function renderSettings() {
+  const settings = await getSettings();
+  const screen = document.getElementById('settings-screen');
+  let chosenMode = settings.studyMode;
+
+  screen.innerHTML = `
+    <div class="verb-detail-header">
+      <button class="back-btn" id="settings-back">&#8592;</button>
+      <div><h2>Settings</h2></div>
+    </div>
+    <div class="settings-body">
+      <div class="setting-group">
+        <label class="setting-label">New verbs per day</label>
+        <div class="setting-row">
+          <input type="range" id="set-new-verbs" min="1" max="10" value="${settings.newVerbs}" class="setting-range">
+          <span id="set-new-verbs-val" class="setting-val">${settings.newVerbs}</span>
+        </div>
+      </div>
+      <div class="setting-group">
+        <label class="setting-label">Default study mode</label>
+        <div class="mode-toggle" style="margin:0">
+          <button data-mode="choice" class="${chosenMode === 'choice' ? 'active' : ''}">Multiple choice</button>
+          <button data-mode="type"   class="${chosenMode === 'type'   ? 'active' : ''}">Type it</button>
+        </div>
+      </div>
+      <div class="setting-group">
+        <label class="setting-label">Starting ease factor</label>
+        <select id="set-ease" class="setting-select">
+          <option value="1.5" ${settings.startEase == 1.5 ? 'selected' : ''}>1.5 — Hard start</option>
+          <option value="2.0" ${settings.startEase == 2.0 ? 'selected' : ''}>2.0 — Moderate</option>
+          <option value="2.5" ${settings.startEase == 2.5 ? 'selected' : ''}>2.5 — Default</option>
+          <option value="3.0" ${settings.startEase == 3.0 ? 'selected' : ''}>3.0 — Easy start</option>
+        </select>
+        <p class="setting-hint">Higher = longer gaps between reviews for new cards</p>
+      </div>
+      <button class="btn btn-primary" id="save-settings-btn">Save</button>
+    </div>`;
+
+  document.getElementById('settings-back').onclick = () => { showScreen('home'); renderHome(); };
+
+  const slider = document.getElementById('set-new-verbs');
+  const sliderVal = document.getElementById('set-new-verbs-val');
+  slider.oninput = () => { sliderVal.textContent = slider.value; };
+
+  document.querySelectorAll('#settings-screen .mode-toggle button').forEach(btn => {
+    btn.onclick = () => {
+      chosenMode = btn.dataset.mode;
+      document.querySelectorAll('#settings-screen .mode-toggle button').forEach(b =>
+        b.classList.toggle('active', b === btn));
+    };
+  });
+
+  document.getElementById('save-settings-btn').onclick = async () => {
+    const newSettings = {
+      newVerbs: parseInt(slider.value, 10),
+      studyMode: chosenMode,
+      startEase: parseFloat(document.getElementById('set-ease').value),
+    };
+    await saveSettings(newSettings);
+    _studyMode = newSettings.studyMode;
+    showToast('Settings saved');
+    showScreen('home');
+    renderHome();
+  };
 }

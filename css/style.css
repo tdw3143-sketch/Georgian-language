@@ -90,10 +90,6 @@ nav button svg { width: 22px; height: 22px; }
 .btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
 /* ── HOME ── */
-.home-header { margin-bottom: 32px; }
-.home-header h1 { font-size: 26px; font-weight: 700; }
-.home-header p { color: var(--text2); margin-top: 4px; }
-
 .streak-card {
   background: linear-gradient(135deg, var(--accent) 0%, #a855f7 100%);
   border-radius: var(--radius);
@@ -586,4 +582,171 @@ nav button svg { width: 22px; height: 22px; }
   font-size: 22px;
   font-weight: 700;
   margin-bottom: 20px;
+}
+
+/* ── HOME HEADER (with gear) ── */
+.home-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 32px;
+}
+.home-header h1 { font-size: 26px; font-weight: 700; }
+.home-header p { color: var(--text2); margin-top: 4px; }
+.gear-btn {
+  background: var(--surface);
+  border: none;
+  color: var(--text2);
+  font-size: 20px;
+  width: 38px; height: 38px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s;
+}
+.gear-btn:active { background: var(--surface2); color: var(--text); }
+
+/* ── GEORGIAN KEYBOARD ── */
+.geo-keyboard {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
+  user-select: none;
+}
+.geo-keyboard-row {
+  display: flex;
+  gap: 3px;
+  justify-content: center;
+}
+.geo-key {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 0;
+  background: var(--surface);
+  border: 1px solid var(--surface2);
+  border-radius: 7px;
+  color: var(--text);
+  font-size: 17px;
+  cursor: pointer;
+  text-align: center;
+  line-height: 1;
+  transition: background 0.08s;
+  touch-action: manipulation;
+}
+.geo-key:active, .geo-key.pressed { background: var(--surface2); }
+.geo-key.backspace {
+  flex: 1.6;
+  font-size: 14px;
+  color: var(--text2);
+}
+
+/* ── MISTAKES REVIEW ── */
+.mistakes-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+  flex: 1;
+  padding-bottom: 8px;
+}
+.mistake-card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.mistake-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.mistake-tense {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--accent2);
+  background: rgba(108,99,255,0.12);
+  padding: 2px 7px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+.mistake-phrase { font-size: 13px; color: var(--text2); }
+.mistake-verb { font-size: 18px; font-weight: 600; }
+.mistake-answers {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 2px;
+}
+.mistake-wrong {
+  font-size: 18px;
+  color: var(--red);
+  text-decoration: line-through;
+  opacity: 0.8;
+}
+.mistake-arrow { color: var(--text2); font-size: 14px; }
+.mistake-right { font-size: 18px; font-weight: 700; color: var(--green); }
+
+/* ── SETTINGS ── */
+.settings-body {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  overflow-y: auto;
+  flex: 1;
+  padding-bottom: 24px;
+}
+.setting-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.setting-label {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--text2);
+}
+.setting-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.setting-range {
+  flex: 1;
+  accent-color: var(--accent);
+  height: 4px;
+  cursor: pointer;
+}
+.setting-val {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--accent2);
+  min-width: 24px;
+  text-align: right;
+}
+.setting-select {
+  background: var(--surface);
+  border: 1.5px solid var(--surface2);
+  border-radius: 12px;
+  color: var(--text);
+  padding: 12px 16px;
+  width: 100%;
+  outline: none;
+  font-size: 15px;
+  appearance: none;
+  cursor: pointer;
+}
+.setting-select:focus { border-color: var(--accent); }
+.setting-hint {
+  font-size: 12px;
+  color: var(--text2);
+  line-height: 1.4;
+  margin: 0;
 }

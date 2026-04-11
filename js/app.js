@@ -31,6 +31,16 @@ async function init() {
     console.warn('Could not load verbs.json:', e);
   }
 
+  // Load settings (study mode default)
+  const _initSettings = await getSettings();
+  _studyMode = _initSettings.studyMode;
+
+  // Settings gear button
+  document.getElementById('settings-btn').addEventListener('click', () => {
+    showScreen('settings');
+    renderSettings();
+  });
+
   // Nav
   document.querySelectorAll('nav button[data-screen]').forEach(btn => {
     btn.addEventListener('click', () => {

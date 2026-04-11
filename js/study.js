@@ -1,23 +1,23 @@
 // Study session engine
 
-const NEW_VERBS_PER_DAY = 2;
-
 async function extendDailyLimit() {
   const todayKey = new Date().toDateString();
   const extra = (await getMeta('newVerbsExtra_' + todayKey)) || 0;
-  await setMeta('newVerbsExtra_' + todayKey, extra + NEW_VERBS_PER_DAY);
+  const settings = await getSettings();
+  await setMeta('newVerbsExtra_' + todayKey, extra + settings.newVerbs);
 }
 
 async function buildQueue() {
   const db = getDB();
   const now = Date.now();
   const due = await getDueCards(now);
+  const settings = await getSettings();
 
   // Introduce new verbs today
   const todayKey = new Date().toDateString();
   const newTodayCount = (await getMeta('newVerbsToday_' + todayKey)) || 0;
   const extraToday = (await getMeta('newVerbsExtra_' + todayKey)) || 0;
-  const dailyLimit = NEW_VERBS_PER_DAY + extraToday;
+  const dailyLimit = settings.newVerbs + extraToday;
   const newCards = [];
 
   if (newTodayCount < dailyLimit) {
@@ -31,7 +31,7 @@ async function buildQueue() {
       if (existing.length > 0) continue; // already started
 
       for (const person of PERSONS) {
-        const card = newCard(verb.id, 'present', person);
+        const card = newCard(verb.id, 'present', person, settings.startEase);
         await saveCard(card);
         newCards.push(card);
       }
@@ -65,7 +65,7 @@ async function checkTenseUnlocks() {
       const nextTense = TENSE_ORDER[ti + 1];
       const tenseCards = cards.filter(c => c.tense === tense);
       if (tenseCards.length < PERSONS.length) break;
-      if (!tenseCards.every(c => c.reps >= 1)) break;
+      if (!tenseCards.every(c => c.reps >= 3 && c.ease >= 2.0)) break;
       if (cards.some(c => c.tense === nextTense)) continue;
 
       for (const person of PERSONS) {
@@ -77,12 +77,13 @@ async function checkTenseUnlocks() {
 
 async function buildCustomQueue(verbIds) {
   const db = getDB();
+  const settings = await getSettings();
   const allCards = [];
   for (const verbId of verbIds) {
     let cards = await db.cards.where('verbId').equals(verbId).toArray();
     if (cards.length === 0) {
       for (const person of PERSONS) {
-        const card = newCard(verbId, 'present', person);
+        const card = newCard(verbId, 'present', person, settings.startEase);
         await saveCard(card);
         allCards.push(card);
       }

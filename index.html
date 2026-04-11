@@ -16,8 +16,11 @@
   <!-- ── HOME ──────────────────────────────────────────── -->
   <div id="home-screen" class="screen">
     <div class="home-header">
-      <h1>Georgian Verbs</h1>
-      <p>Daily verb practice</p>
+      <div>
+        <h1>Georgian Verbs</h1>
+        <p>Daily verb practice</p>
+      </div>
+      <button class="gear-btn" id="settings-btn" title="Settings">⚙</button>
     </div>
 
     <div class="streak-card">
@@ -42,7 +45,7 @@
         <div class="lbl">Total cards</div>
       </div>
       <div class="stat-card">
-        <div class="val">2</div>
+        <div class="val" id="home-new-per-day">2</div>
         <div class="lbl">New / day</div>
       </div>
     </div>
@@ -94,6 +97,9 @@
     </div>
     <div id="tense-sections" style="overflow-y:auto;flex:1;padding-bottom:16px"></div>
   </div>
+
+  <!-- ── SETTINGS ────────────────────────────────────────── -->
+  <div id="settings-screen" class="screen"></div>
 
   <!-- ── STATS ─────────────────────────────────────────── -->
   <div id="stats-screen" class="screen">

@@ -94,3 +94,12 @@ async function importData(jsonString) {
   if (cards?.length) await db.cards.bulkPut(cards);
   if (meta?.length)  await db.meta.bulkPut(meta);
 }
+
+async function getSettings() {
+  const s = await getMeta('settings');
+  return { newVerbs: 2, studyMode: 'choice', startEase: 2.5, ...(s || {}) };
+}
+
+async function saveSettings(settings) {
+  return setMeta('settings', settings);
+}
