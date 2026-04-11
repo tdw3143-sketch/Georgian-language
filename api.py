@@ -14,16 +14,26 @@ ROOT = Path(__file__).parent
 
 # ── Static file serving ────────────────────────────────────────────────────────
 
+def no_cache(response):
+    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
+
 @app.route('/')
 def index():
-    return send_file(ROOT / 'index.html')
+    return no_cache(send_file(ROOT / 'index.html'))
 
 @app.route('/<path:path>')
 def static_files(path):
     full = ROOT / path
     if full.exists() and full.is_file():
         mime, _ = mimetypes.guess_type(str(full))
-        return send_file(full, mimetype=mime or 'application/octet-stream')
+        response = send_file(full, mimetype=mime or 'application/octet-stream')
+        # Never cache HTML, JS, CSS or the service worker
+        if any(path.endswith(ext) for ext in ('.html', '.js', '.css')):
+            no_cache(response)
+        return response
     return 'Not found', 404
 
 # ── OCR endpoint ───────────────────────────────────────────────────────────────
