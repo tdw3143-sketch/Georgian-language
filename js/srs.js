@@ -95,6 +95,26 @@ function buildEnglishPhrase(person, tense, verbEnglish) {
   }
 }
 
+const VOCAB_TYPE_LABELS = {
+  noun: 'Noun', verb: 'Verb', adj: 'Adjective',
+  adv: 'Adverb', phrase: 'Phrase', other: 'Other',
+};
+
+function newVocabCard(vocabId, direction, ease = 2.5) {
+  return {
+    id: `vocab__${vocabId}__${direction}`,
+    cardType: 'vocab',
+    vocabId,
+    direction,
+    ease,
+    interval: 1,
+    reps: 0,
+    nextReview: Date.now(),
+    lastReviewed: null,
+    introduced: 1,
+  };
+}
+
 function newCard(verbId, tense, person, ease = 2.5) {
   return {
     id: `${verbId}__${tense}__${person}`,

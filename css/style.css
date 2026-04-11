@@ -750,3 +750,129 @@ nav button svg { width: 22px; height: 22px; }
   line-height: 1.4;
   margin: 0;
 }
+
+/* ── CHAPTERS DASHBOARD ── */
+.chapters-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+.chapters-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+  flex: 1;
+}
+.chapter-card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.chapter-card:active { background: var(--surface2); }
+.chapter-card-number {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--accent2);
+  min-width: 36px;
+  text-align: center;
+}
+.chapter-card-info { flex: 1; min-width: 0; }
+.chapter-card-name { font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chapter-card-meta { font-size: 12px; color: var(--text2); margin-top: 3px; }
+.chapter-mastery {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: var(--surface2);
+  color: var(--text2);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.chapter-mastery.learned { background: rgba(34,197,94,0.15); color: var(--green); }
+
+/* ── CHAPTER DETAIL ── */
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.section-title {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--text2);
+}
+.vocab-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.vocab-item {
+  background: var(--surface);
+  border-radius: 12px;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.vocab-item-words { flex: 1; min-width: 0; }
+.vocab-item-georgian { font-size: 18px; font-weight: 600; }
+.vocab-item-english { font-size: 13px; color: var(--text2); margin-top: 2px; }
+.vocab-type-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: rgba(108,99,255,0.15);
+  color: var(--accent2);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.mastery-dot {
+  color: var(--green);
+  font-size: 14px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.vocab-delete-btn {
+  background: none;
+  border: none;
+  color: var(--text2);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 4px 6px;
+  opacity: 0.4;
+  flex-shrink: 0;
+  transition: opacity 0.15s, color 0.15s;
+}
+.vocab-delete-btn:active { opacity: 1; color: var(--red); }
+
+/* ── LINK VERB PANEL ── */
+.link-verb-panel {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 20px;
+}
+.link-verb-row { cursor: default; }
+.link-verb-row:active { background: var(--surface); }
+
+/* ── VOCAB CHOICE BUTTONS (full-width, text-sized) ── */
+.choice-grid.vocab-choices {
+  grid-template-columns: 1fr;
+}
+.choice-grid.vocab-choices .choice-btn {
+  font-size: 15px;
+  padding: 16px 20px;
+  text-align: left;
+}

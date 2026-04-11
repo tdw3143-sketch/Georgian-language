@@ -167,6 +167,78 @@ async function getDistractors(card, verbData) {
   return shuffle([correct, ...Array.from(distractors).slice(0, 3)]);
 }
 
+async function getVocabDistractors(card, vocabItem) {
+  const db = getDB();
+  const field = card.direction === 'g2e' ? 'english' : 'georgian';
+  const correct = vocabItem[field];
+  const distractors = [];
+
+  // Try chapter vocab first, then fall back to all vocab
+  const chapterVocab = await getVocabByChapter(vocabItem.chapterId);
+  const allVocab = chapterVocab.length < 6
+    ? await db.vocab.limit(30).toArray()
+    : chapterVocab;
+
+  for (const v of shuffle(allVocab)) {
+    if (v.id === vocabItem.id) continue;
+    const opt = v[field];
+    if (opt && opt !== correct && !distractors.includes(opt)) {
+      distractors.push(opt);
+      if (distractors.length >= 3) break;
+    }
+  }
+
+  return shuffle([correct, ...distractors]);
+}
+
+async function buildChapterQueue(chapterId) {
+  const settings = await getSettings();
+  const chapter = await getChapter(chapterId);
+  if (!chapter) return [];
+
+  const now = Date.now();
+  const allCards = [];
+
+  // Vocab cards (both directions)
+  const vocabItems = await getVocabByChapter(chapterId);
+  for (const item of vocabItems) {
+    for (const dir of ['g2e', 'e2g']) {
+      const cardId = `vocab__${item.id}__${dir}`;
+      let card = await getCard(cardId);
+      if (!card) {
+        card = newVocabCard(item.id, dir, settings.startEase);
+        await saveCard(card);
+      }
+      allCards.push(card);
+    }
+  }
+
+  // Verb cards for linked verbs
+  for (const verbId of (chapter.verbIds || [])) {
+    const verbCards = await getVerbCards(verbId);
+    if (verbCards.length === 0) {
+      for (const person of PERSONS) {
+        const card = newCard(verbId, 'present', person, settings.startEase);
+        await saveCard(card);
+        allCards.push(card);
+      }
+    } else {
+      allCards.push(...verbCards);
+    }
+  }
+
+  // Include new cards (never reviewed) and due cards
+  const filtered = allCards.filter(c => c.reps === 0 || c.nextReview <= now);
+  return shuffle(filtered);
+}
+
+async function startChapterSession(chapterId) {
+  _queue = await buildChapterQueue(chapterId);
+  _index = 0; _correct = 0; _reviewed = 0;
+  await updateStreak();
+  return _queue.length;
+}
+
 function shuffle(arr) {
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) {

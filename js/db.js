@@ -8,6 +8,13 @@ function getDB() {
     verbs: 'id, frequency_rank',
     meta:  'key'
   });
+  db.version(2).stores({
+    cards:    'id, verbId, vocabId, tense, person, nextReview, introduced',
+    verbs:    'id, frequency_rank',
+    meta:     'key',
+    chapters: '++id, number',
+    vocab:    '++id, chapterId',
+  });
   window._db = db;
   return db;
 }
@@ -15,7 +22,6 @@ function getDB() {
 async function loadVerbsIntoDB(verbs) {
   const db = getDB();
   const count = await db.verbs.count();
-  // Always sync if JSON has more verbs than DB (handles scraper updates)
   if (count >= verbs.length) return;
   await db.verbs.bulkPut(verbs);
 }
@@ -42,6 +48,10 @@ async function getDueCards(now = Date.now()) {
 
 async function getVerbCards(verbId) {
   return getDB().cards.where('verbId').equals(verbId).toArray();
+}
+
+async function getVocabCards(vocabId) {
+  return getDB().cards.where('vocabId').equals(vocabId).toArray();
 }
 
 async function getMeta(key) {
@@ -71,7 +81,7 @@ async function getStreak() {
 
 async function countIntroducedVerbs() {
   const cards = await getDB().cards.where('introduced').equals(1).toArray();
-  return new Set(cards.map(c => c.verbId)).size;
+  return new Set(cards.filter(c => !c.cardType).map(c => c.verbId)).size;
 }
 
 async function getTotalCards() {
@@ -84,15 +94,20 @@ async function getDueCount() {
 
 async function exportData() {
   const db = getDB();
-  const [cards, meta] = await Promise.all([db.cards.toArray(), db.meta.toArray()]);
-  return JSON.stringify({ cards, meta, exportedAt: Date.now() }, null, 2);
+  const [cards, meta, chapters, vocab] = await Promise.all([
+    db.cards.toArray(), db.meta.toArray(),
+    db.chapters.toArray(), db.vocab.toArray(),
+  ]);
+  return JSON.stringify({ cards, meta, chapters, vocab, exportedAt: Date.now() }, null, 2);
 }
 
 async function importData(jsonString) {
-  const { cards, meta } = JSON.parse(jsonString);
+  const { cards, meta, chapters, vocab } = JSON.parse(jsonString);
   const db = getDB();
-  if (cards?.length) await db.cards.bulkPut(cards);
-  if (meta?.length)  await db.meta.bulkPut(meta);
+  if (cards?.length)    await db.cards.bulkPut(cards);
+  if (meta?.length)     await db.meta.bulkPut(meta);
+  if (chapters?.length) await db.chapters.bulkPut(chapters);
+  if (vocab?.length)    await db.vocab.bulkPut(vocab);
 }
 
 async function getSettings() {
@@ -102,4 +117,48 @@ async function getSettings() {
 
 async function saveSettings(settings) {
   return setMeta('settings', settings);
+}
+
+// ── CHAPTERS ──────────────────────────────────────────────────────────────────
+
+async function getChapters() {
+  return getDB().chapters.orderBy('number').toArray();
+}
+
+async function getChapter(id) {
+  return getDB().chapters.get(id);
+}
+
+async function saveChapter(chapter) {
+  return getDB().chapters.put(chapter);
+}
+
+async function deleteChapter(id) {
+  const db = getDB();
+  const vocabItems = await db.vocab.where('chapterId').equals(id).toArray();
+  for (const v of vocabItems) {
+    await db.cards.where('vocabId').equals(v.id).delete();
+    await db.vocab.delete(v.id);
+  }
+  await db.chapters.delete(id);
+}
+
+// ── VOCAB ─────────────────────────────────────────────────────────────────────
+
+async function getVocabByChapter(chapterId) {
+  return getDB().vocab.where('chapterId').equals(chapterId).toArray();
+}
+
+async function getVocabItem(id) {
+  return getDB().vocab.get(id);
+}
+
+async function saveVocabItem(item) {
+  return getDB().vocab.put(item);
+}
+
+async function deleteVocabItem(id) {
+  const db = getDB();
+  await db.cards.where('vocabId').equals(id).delete();
+  await db.vocab.delete(id);
 }

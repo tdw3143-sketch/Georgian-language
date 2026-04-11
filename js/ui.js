@@ -1,11 +1,12 @@
 // UI — screen routing, rendering, event handling
 
-let _studyMode = 'choice';  // 'choice' | 'type' — initialised from settings
+let _studyMode = 'choice';  // initialised from settings on app start
 let _allVerbs = [];
 let _pendingCorrect = null;
 let _pendingCard = null;
-let _pendingVerb = null;
-let _sessionMistakes = [];  // {card, verb, typed, correct}
+let _pendingItem = null;     // verb object OR vocab object for the current card
+let _sessionMistakes = [];   // { card, item, typed, correct }
+let _currentChapterId = null;
 
 // ── LEVENSHTEIN ────────────────────────────────────────────────────────────────
 function levenshtein(a, b) {
@@ -70,7 +71,6 @@ async function initStudy() {
   showScreen('study');
 
   const count = await startSession();
-
   if (count === 0) {
     screen.innerHTML = `
       <div class="empty-state">
@@ -79,12 +79,31 @@ async function initStudy() {
         <p>No cards due right now.<br>Check back tomorrow.</p>
         <button class="btn btn-secondary" id="back-from-empty">Back to home</button>
       </div>`;
-    document.getElementById('back-from-empty').onclick = () => {
-      showScreen('home'); renderHome();
-    };
+    document.getElementById('back-from-empty').onclick = () => { showScreen('home'); renderHome(); };
     return;
   }
+  renderStudyCard();
+}
 
+async function initChapterStudy(chapterId) {
+  _sessionMistakes = [];
+  _currentChapterId = chapterId;
+  const screen = document.getElementById('study-screen');
+  screen.innerHTML = `<div class="loading"><div class="spinner"></div><p>Loading session…</p></div>`;
+  showScreen('study');
+
+  const count = await startChapterSession(chapterId);
+  if (count === 0) {
+    screen.innerHTML = `
+      <div class="empty-state">
+        <div class="icon">🎉</div>
+        <h2>All caught up!</h2>
+        <p>No cards due for this chapter right now.</p>
+        <button class="btn btn-secondary" id="back-from-empty">Back to chapter</button>
+      </div>`;
+    document.getElementById('back-from-empty').onclick = () => showChapterDetail(chapterId);
+    return;
+  }
   renderStudyCard();
 }
 
@@ -95,54 +114,105 @@ function renderStudyCard() {
   const { index, total } = sessionProgress();
   const pct = Math.round((index / total) * 100);
 
-  getVerb(card.verbId).then(verb => {
-    if (!verb) { submitRating(0).then(renderStudyCard); return; }
-
-    const correct = verb.conjugations?.[card.tense]?.[card.person] || '—';
-    _pendingCorrect = correct;
-    _pendingCard = card;
-    _pendingVerb = verb;
-
-    const screen = document.getElementById('study-screen');
-    screen.innerHTML = `
-      <div class="session-header">
-        <button class="exit-btn" id="exit-study">✕</button>
-        <div class="progress-bar-wrap">
-          <div class="progress-bar" style="width:${pct}%"></div>
-        </div>
-        <span class="session-count">${index}/${total}</span>
+  const screen = document.getElementById('study-screen');
+  screen.innerHTML = `
+    <div class="session-header">
+      <button class="exit-btn" id="exit-study">✕</button>
+      <div class="progress-bar-wrap">
+        <div class="progress-bar" style="width:${pct}%"></div>
       </div>
-      <div class="card-area">
-        <div class="verb-card">
-          <div class="tense-label">${TENSE_LABELS[card.tense]}</div>
-          <div class="english">${buildEnglishPhrase(card.person, card.tense, verb.english)}</div>
-          <div class="infinitive">${verb.conjugations?.present?.['3sg'] || verb.infinitive}</div>
-          <div class="prompt">How do you say this in Georgian?</div>
-        </div>
-        <div class="mode-toggle">
-          <button data-mode="choice" class="${_studyMode === 'choice' ? 'active' : ''}">Multiple choice</button>
-          <button data-mode="type"   class="${_studyMode === 'type'   ? 'active' : ''}">Type it</button>
-        </div>
-        <div id="answer-area" class="answer-area"></div>
-      </div>`;
+      <span class="session-count">${index}/${total}</span>
+    </div>
+    <div class="card-area" id="card-area"></div>`;
 
-    document.getElementById('exit-study').onclick = () => { showScreen('home'); renderHome(); };
-    document.querySelectorAll('.mode-toggle button').forEach(btn => {
-      btn.onclick = () => { _studyMode = btn.dataset.mode; renderStudyCard(); };
+  document.getElementById('exit-study').onclick = () => { showScreen('home'); renderHome(); };
+
+  if (card.cardType === 'vocab') {
+    getVocabItem(card.vocabId).then(vocab => {
+      if (!vocab) { submitRating(0).then(renderStudyCard); return; }
+      _pendingCard = card;
+      _pendingItem = vocab;
+      _pendingCorrect = card.direction === 'g2e' ? vocab.english : vocab.georgian;
+      renderVocabStudyCard(card, vocab);
     });
-
-    if (_studyMode === 'choice') renderChoiceMode(card, verb, correct);
-    else renderTypeMode(card, verb, correct);
-  });
+  } else {
+    getVerb(card.verbId).then(verb => {
+      if (!verb) { submitRating(0).then(renderStudyCard); return; }
+      const correct = verb.conjugations?.[card.tense]?.[card.person] || '—';
+      _pendingCorrect = correct;
+      _pendingCard = card;
+      _pendingItem = verb;
+      renderVerbStudyCard(card, verb, correct);
+    });
+  }
 }
 
-function renderChoiceMode(card, verb, correct) {
-  getDistractors(card, verb).then(options => {
+function renderVerbStudyCard(card, verb, correct) {
+  const area = document.getElementById('card-area');
+  if (!area) return;
+
+  area.innerHTML = `
+    <div class="verb-card">
+      <div class="tense-label">${TENSE_LABELS[card.tense]}</div>
+      <div class="english">${buildEnglishPhrase(card.person, card.tense, verb.english)}</div>
+      <div class="infinitive">${verb.conjugations?.present?.['3sg'] || verb.infinitive}</div>
+      <div class="prompt">How do you say this in Georgian?</div>
+    </div>
+    <div class="mode-toggle">
+      <button data-mode="choice" class="${_studyMode === 'choice' ? 'active' : ''}">Multiple choice</button>
+      <button data-mode="type"   class="${_studyMode === 'type'   ? 'active' : ''}">Type it</button>
+    </div>
+    <div id="answer-area" class="answer-area"></div>`;
+
+  document.querySelectorAll('.mode-toggle button').forEach(btn => {
+    btn.onclick = () => { _studyMode = btn.dataset.mode; renderStudyCard(); };
+  });
+
+  if (_studyMode === 'choice') renderChoiceMode(card, verb, correct);
+  else renderTypeMode(card, verb, correct);
+}
+
+function renderVocabStudyCard(card, vocab) {
+  const area = document.getElementById('card-area');
+  if (!area) return;
+
+  const isG2E = card.direction === 'g2e';
+  const prompt = isG2E ? vocab.georgian : vocab.english;
+  const correct = isG2E ? vocab.english : vocab.georgian;
+  const dirLabel = isG2E ? 'What does this mean?' : 'How do you say this in Georgian?';
+  const typeLabel = VOCAB_TYPE_LABELS[vocab.type] || '';
+
+  area.innerHTML = `
+    <div class="verb-card">
+      ${typeLabel ? `<div class="tense-label">${typeLabel}</div>` : ''}
+      <div class="infinitive">${prompt}</div>
+      <div class="prompt">${dirLabel}</div>
+    </div>
+    <div class="mode-toggle">
+      <button data-mode="choice" class="${_studyMode === 'choice' ? 'active' : ''}">Multiple choice</button>
+      <button data-mode="type"   class="${_studyMode === 'type'   ? 'active' : ''}">Type it</button>
+    </div>
+    <div id="answer-area" class="answer-area"></div>`;
+
+  document.querySelectorAll('.mode-toggle button').forEach(btn => {
+    btn.onclick = () => { _studyMode = btn.dataset.mode; renderStudyCard(); };
+  });
+
+  if (_studyMode === 'choice') renderChoiceMode(card, vocab, correct);
+  else renderTypeMode(card, vocab, correct);
+}
+
+function renderChoiceMode(card, item, correct) {
+  const distPromise = card.cardType === 'vocab'
+    ? getVocabDistractors(card, item)
+    : getDistractors(card, item);
+
+  distPromise.then(options => {
     const area = document.getElementById('answer-area');
     if (!area) return;
 
     const grid = document.createElement('div');
-    grid.className = 'choice-grid';
+    grid.className = 'choice-grid' + (card.cardType === 'vocab' ? ' vocab-choices' : '');
     options.forEach(opt => {
       const btn = document.createElement('button');
       btn.className = 'choice-btn';
@@ -162,8 +232,8 @@ function handleChoiceAnswer(e) {
   const correct = btn.dataset.correct;
   const isCorrect = chosen === correct;
 
-  if (!isCorrect && _pendingCard && _pendingVerb) {
-    _sessionMistakes.push({ card: _pendingCard, verb: _pendingVerb, typed: chosen, correct });
+  if (!isCorrect && _pendingCard && _pendingItem) {
+    _sessionMistakes.push({ card: _pendingCard, item: _pendingItem, typed: chosen, correct });
   }
 
   document.querySelectorAll('.choice-btn').forEach(b => {
@@ -196,7 +266,7 @@ function buildGeoKeyboard(input) {
       key.className = 'geo-key' + (ch === '⌫' ? ' backspace' : '');
       key.textContent = ch;
       key.addEventListener('pointerdown', e => {
-        e.preventDefault(); // prevent input losing focus
+        e.preventDefault();
         if (ch === '⌫') {
           const pos = input.selectionStart;
           const val = input.value;
@@ -218,7 +288,7 @@ function buildGeoKeyboard(input) {
   return keyboard;
 }
 
-function renderTypeMode(card, verb, correct) {
+function renderTypeMode(card, item, correct) {
   const area = document.getElementById('answer-area');
   if (!area) return;
 
@@ -229,7 +299,7 @@ function renderTypeMode(card, verb, correct) {
   input.id = 'type-input';
   input.className = 'type-input';
   input.type = 'text';
-  input.placeholder = 'type the form…';
+  input.placeholder = 'type the answer…';
   input.autocomplete = 'off';
   input.setAttribute('autocorrect', 'off');
   input.setAttribute('spellcheck', 'false');
@@ -252,7 +322,7 @@ function renderTypeMode(card, verb, correct) {
     input.classList.add(isCorrect ? 'correct' : 'wrong');
 
     if (!isCorrect) {
-      _sessionMistakes.push({ card, verb, typed, correct });
+      _sessionMistakes.push({ card, item, typed, correct });
     }
     if (isFuzzy) showToast('Almost! Accepted');
 
@@ -264,7 +334,11 @@ function renderTypeMode(card, verb, correct) {
 
   wrap.appendChild(input);
   wrap.appendChild(checkBtn);
-  wrap.appendChild(buildGeoKeyboard(input));
+
+  // Show Georgian keyboard unless the expected answer is in English (g2e vocab)
+  const needsGeoKeyboard = !(card.cardType === 'vocab' && card.direction === 'g2e');
+  if (needsGeoKeyboard) wrap.appendChild(buildGeoKeyboard(input));
+
   area.appendChild(wrap);
   input.focus();
 }
@@ -315,15 +389,24 @@ function renderSessionDone() {
 function renderMistakesReview() {
   const screen = document.getElementById('study-screen');
   const items = _sessionMistakes.map(m => {
-    const phrase = buildEnglishPhrase(m.card.person, m.card.tense, m.verb.english);
-    const verbDisplay = m.verb.conjugations?.present?.['3sg'] || m.verb.infinitive;
+    let tenseOrType, phrase, display;
+    if (m.card.cardType === 'vocab') {
+      const dir = m.card.direction === 'g2e' ? 'Georgian → English' : 'English → Georgian';
+      tenseOrType = dir;
+      phrase = VOCAB_TYPE_LABELS[m.item.type] || '';
+      display = m.card.direction === 'g2e' ? m.item.georgian : m.item.english;
+    } else {
+      tenseOrType = TENSE_LABELS[m.card.tense];
+      phrase = buildEnglishPhrase(m.card.person, m.card.tense, m.item.english);
+      display = m.item.conjugations?.present?.['3sg'] || m.item.infinitive;
+    }
     return `
       <div class="mistake-card">
         <div class="mistake-meta">
-          <span class="mistake-tense">${TENSE_LABELS[m.card.tense]}</span>
+          <span class="mistake-tense">${tenseOrType}</span>
           <span class="mistake-phrase">${phrase}</span>
         </div>
-        <div class="mistake-verb">${verbDisplay}</div>
+        <div class="mistake-verb">${display}</div>
         <div class="mistake-answers">
           <span class="mistake-wrong">${m.typed || '—'}</span>
           <span class="mistake-arrow">→</span>
@@ -344,7 +427,314 @@ function renderMistakesReview() {
   document.getElementById('close-review-btn').onclick = () => { showScreen('home'); renderHome(); };
 }
 
-// ── ADD VERB ───────────────────────────────────────────────────────────────────
+// ── CHAPTERS DASHBOARD ─────────────────────────────────────────────────────────
+async function renderChapters() {
+  const chapters = await getChapters();
+  const screen = document.getElementById('chapters-screen');
+
+  if (chapters.length === 0) {
+    screen.innerHTML = `
+      <div class="chapters-header">
+        <div class="screen-title" style="margin:0">Chapters</div>
+        <button class="btn btn-secondary" id="new-chapter-btn" style="width:auto;padding:8px 16px;font-size:13px">+ New</button>
+      </div>
+      <div class="empty-state" style="flex:1">
+        <div class="icon" style="font-size:48px">📖</div>
+        <h2>No chapters yet</h2>
+        <p>Create a chapter for each unit in your Biliki book to study its vocabulary and verbs.</p>
+      </div>`;
+    document.getElementById('new-chapter-btn').onclick = showNewChapterForm;
+    return;
+  }
+
+  screen.innerHTML = `
+    <div class="chapters-header">
+      <div class="screen-title" style="margin:0">Chapters</div>
+      <button class="btn btn-secondary" id="new-chapter-btn" style="width:auto;padding:8px 16px;font-size:13px">+ New</button>
+    </div>
+    <div class="chapters-list" id="chapters-list"></div>`;
+  document.getElementById('new-chapter-btn').onclick = showNewChapterForm;
+
+  const list = document.getElementById('chapters-list');
+  for (const ch of chapters) {
+    const vocabItems = await getVocabByChapter(ch.id);
+    const verbCount = (ch.verbIds || []).length;
+
+    let masteredVocab = 0;
+    for (const item of vocabItems) {
+      const card = await getCard(`vocab__${item.id}__g2e`);
+      if (card && card.reps >= 3) masteredVocab++;
+    }
+    const vocabTotal = vocabItems.length;
+    const vocabPct = vocabTotal > 0 ? Math.round((masteredVocab / vocabTotal) * 100) : 0;
+    const allLearned = vocabTotal > 0 && masteredVocab === vocabTotal;
+
+    const card = document.createElement('div');
+    card.className = 'chapter-card';
+    card.innerHTML = `
+      <div class="chapter-card-number">${ch.number}</div>
+      <div class="chapter-card-info">
+        <div class="chapter-card-name">${ch.name || 'Chapter ' + ch.number}</div>
+        <div class="chapter-card-meta">${vocabTotal} word${vocabTotal !== 1 ? 's' : ''}${verbCount > 0 ? `  ·  ${verbCount} verb${verbCount !== 1 ? 's' : ''}` : ''}</div>
+      </div>
+      <div class="chapter-mastery${allLearned ? ' learned' : ''}">${vocabTotal > 0 ? vocabPct + '%' : 'Empty'}</div>`;
+    card.onclick = () => showChapterDetail(ch.id);
+    list.appendChild(card);
+  }
+}
+
+// ── CHAPTER DETAIL ─────────────────────────────────────────────────────────────
+let _currentChapterVerbs = [];
+
+function showChapterDetail(id) {
+  _currentChapterId = id;
+  document.getElementById('chapters-screen').style.display = 'none';
+  const overlay = document.getElementById('chapter-detail');
+  overlay.style.display = 'flex';
+  renderChapterDetail(id);
+}
+
+function hideChapterDetail() {
+  document.getElementById('chapter-detail').style.display = 'none';
+  document.getElementById('chapters-screen').style.display = 'flex';
+  renderChapters();
+}
+
+async function renderChapterDetail(chapterId) {
+  const [chapter, vocabItems] = await Promise.all([
+    getChapter(chapterId),
+    getVocabByChapter(chapterId),
+  ]);
+  if (!chapter) return;
+
+  document.getElementById('chapter-detail-name').textContent =
+    chapter.name || 'Chapter ' + chapter.number;
+  document.getElementById('chapter-detail-meta').textContent =
+    'Chapter ' + chapter.number + (chapter.name ? ' · Biliki' : '');
+
+  const body = document.getElementById('chapter-detail-body');
+
+  // Build verb rows for linked verbs
+  const verbIds = chapter.verbIds || [];
+  _currentChapterVerbs = verbIds.length > 0
+    ? await Promise.all(verbIds.map(id => getVerb(id)))
+    : [];
+  const validVerbs = _currentChapterVerbs.filter(Boolean);
+
+  // Mastery counts
+  let masteredVocab = 0;
+  const vocabCardsData = await Promise.all(
+    vocabItems.map(item => getCard(`vocab__${item.id}__g2e`))
+  );
+  vocabCardsData.forEach(c => { if (c && c.reps >= 3) masteredVocab++; });
+
+  const dueVocab = await Promise.all(
+    vocabItems.map(async item => {
+      const g2e = await getCard(`vocab__${item.id}__g2e`);
+      const e2g = await getCard(`vocab__${item.id}__e2g`);
+      const now = Date.now();
+      return ((!g2e || g2e.reps === 0 || g2e.nextReview <= now) ||
+              (!e2g || e2g.reps === 0 || e2g.nextReview <= now));
+    })
+  );
+  const dueCount = dueVocab.filter(Boolean).length + verbIds.length;
+
+  body.innerHTML = `
+    <button class="btn btn-primary" id="study-chapter-btn" style="margin-bottom:20px">
+      Study Chapter${dueCount > 0 ? '  ·  ' + dueCount + ' due' : ''}
+    </button>
+
+    <div class="section-header">
+      <span class="section-title">Vocabulary (${vocabItems.length})</span>
+      <button class="btn btn-secondary" id="add-word-btn" style="width:auto;padding:6px 14px;font-size:13px">+ Add word</button>
+    </div>
+    <div class="vocab-list" id="vocab-list-detail">
+      ${vocabItems.length === 0
+        ? '<p style="color:var(--text2);font-size:14px;padding:8px 0">No words yet — add your first word from the chapter.</p>'
+        : vocabItems.map(item => {
+            const mastered = vocabCardsData[vocabItems.indexOf(item)]?.reps >= 3;
+            return `
+              <div class="vocab-item">
+                <div class="vocab-item-words">
+                  <div class="vocab-item-georgian">${item.georgian}</div>
+                  <div class="vocab-item-english">${item.english}</div>
+                </div>
+                <span class="vocab-type-badge">${VOCAB_TYPE_LABELS[item.type] || item.type}</span>
+                ${mastered ? '<span class="mastery-dot">✓</span>' : ''}
+                <button class="vocab-delete-btn" data-vocab-id="${item.id}">✕</button>
+              </div>`;
+          }).join('')}
+    </div>
+
+    <div class="section-header" style="margin-top:20px">
+      <span class="section-title">Verbs (${validVerbs.length})</span>
+      <button class="btn btn-secondary" id="link-verb-btn" style="width:auto;padding:6px 14px;font-size:13px">+ Link verb</button>
+    </div>
+    <div class="vocab-list">
+      ${validVerbs.length === 0
+        ? '<p style="color:var(--text2);font-size:14px;padding:8px 0">No verbs linked yet.</p>'
+        : validVerbs.map(v => `
+            <div class="vocab-item">
+              <div class="vocab-item-words">
+                <div class="vocab-item-georgian">${v.conjugations?.present?.['3sg'] || v.infinitive}</div>
+                <div class="vocab-item-english">to ${v.english}</div>
+              </div>
+              <button class="vocab-delete-btn" data-unlink-verb="${v.id}">✕</button>
+            </div>`).join('')}
+    </div>
+
+    <div style="margin-top:24px;padding-top:16px;border-top:1px solid var(--surface2)">
+      <button class="btn btn-secondary" id="delete-chapter-btn" style="color:var(--red);opacity:0.7">Delete chapter</button>
+    </div>`;
+
+  document.getElementById('study-chapter-btn').onclick = () => initChapterStudy(chapterId);
+  document.getElementById('add-word-btn').onclick = () => showAddVocabForm(chapterId);
+  document.getElementById('link-verb-btn').onclick = () => showLinkVerbPanel(chapterId);
+  document.getElementById('delete-chapter-btn').onclick = async () => {
+    if (!confirm(`Delete chapter "${chapter.name || 'Chapter ' + chapter.number}" and all its vocabulary?`)) return;
+    await deleteChapter(chapterId);
+    hideChapterDetail();
+  };
+
+  // Vocab delete buttons
+  body.querySelectorAll('[data-vocab-id]').forEach(btn => {
+    btn.onclick = async () => {
+      await deleteVocabItem(parseInt(btn.dataset.vocabId));
+      renderChapterDetail(chapterId);
+    };
+  });
+
+  // Verb unlink buttons
+  body.querySelectorAll('[data-unlink-verb]').forEach(btn => {
+    btn.onclick = async () => {
+      const verbId = btn.dataset.unlinkVerb;
+      const ch = await getChapter(chapterId);
+      ch.verbIds = (ch.verbIds || []).filter(id => id !== verbId);
+      await saveChapter(ch);
+      renderChapterDetail(chapterId);
+    };
+  });
+}
+
+// ── ADD VOCAB FORM ─────────────────────────────────────────────────────────────
+function showAddVocabForm(chapterId) {
+  _currentChapterId = chapterId;
+  document.getElementById('chapter-detail').style.display = 'none';
+  const overlay = document.getElementById('vocab-add');
+  overlay.style.display = 'flex';
+
+  // Populate type select
+  const sel = document.getElementById('vocab-type');
+  sel.innerHTML = Object.entries(VOCAB_TYPE_LABELS)
+    .map(([v, l]) => `<option value="${v}">${l}</option>`).join('');
+
+  document.getElementById('vocab-georgian').value = '';
+  document.getElementById('vocab-english').value = '';
+  document.getElementById('vocab-georgian').focus();
+
+  document.getElementById('vocab-save-btn').onclick = () => saveVocabWord(chapterId);
+}
+
+function hideAddVocabForm() {
+  document.getElementById('vocab-add').style.display = 'none';
+  document.getElementById('chapter-detail').style.display = 'flex';
+  renderChapterDetail(_currentChapterId);
+}
+
+async function saveVocabWord(chapterId) {
+  const georgian = document.getElementById('vocab-georgian').value.trim();
+  const english = document.getElementById('vocab-english').value.trim();
+  const type = document.getElementById('vocab-type').value;
+  if (!georgian) { showToast('Enter the Georgian word'); return; }
+  if (!english)  { showToast('Enter the English meaning'); return; }
+  await saveVocabItem({ georgian, english, type, chapterId });
+  showToast('Word saved!');
+  document.getElementById('vocab-georgian').value = '';
+  document.getElementById('vocab-english').value = '';
+  document.getElementById('vocab-georgian').focus();
+}
+
+// ── LINK VERB PANEL ────────────────────────────────────────────────────────────
+function showLinkVerbPanel(chapterId) {
+  const body = document.getElementById('chapter-detail-body');
+  const existing = document.getElementById('link-verb-panel');
+  if (existing) { existing.remove(); return; }
+
+  const panel = document.createElement('div');
+  panel.id = 'link-verb-panel';
+  panel.className = 'link-verb-panel';
+  panel.innerHTML = `
+    <input class="search-input" id="link-verb-search" placeholder="Search verbs…" style="margin-bottom:10px" />
+    <div id="link-verb-results" class="verb-list" style="max-height:200px;overflow-y:auto"></div>`;
+  body.insertBefore(panel, body.firstChild);
+
+  const renderResults = async (query) => {
+    const q = query.toLowerCase();
+    const verbs = await getVerbs(500);
+    const chapter = await getChapter(chapterId);
+    const linkedIds = new Set(chapter.verbIds || []);
+    const filtered = verbs.filter(v =>
+      (v.english.toLowerCase().includes(q) || (v.conjugations?.present?.['3sg'] || '').includes(q)) &&
+      !linkedIds.has(v.id)
+    ).slice(0, 20);
+
+    const results = document.getElementById('link-verb-results');
+    if (!results) return;
+    results.innerHTML = filtered.length === 0
+      ? '<p style="color:var(--text2);font-size:13px;padding:8px">No results</p>'
+      : filtered.map(v => `
+          <div class="vocab-item link-verb-row" data-verb-id="${v.id}">
+            <div class="vocab-item-words">
+              <div class="vocab-item-georgian">${v.conjugations?.present?.['3sg'] || v.infinitive}</div>
+              <div class="vocab-item-english">to ${v.english}</div>
+            </div>
+            <button class="btn btn-secondary" style="width:auto;padding:6px 12px;font-size:12px">Link</button>
+          </div>`).join('');
+
+    results.querySelectorAll('[data-verb-id]').forEach(row => {
+      row.querySelector('button').onclick = async () => {
+        const verbId = row.dataset.verbId;
+        const ch = await getChapter(chapterId);
+        const ids = new Set(ch.verbIds || []);
+        ids.add(verbId);
+        ch.verbIds = Array.from(ids);
+        await saveChapter(ch);
+        panel.remove();
+        renderChapterDetail(chapterId);
+      };
+    });
+  };
+
+  document.getElementById('link-verb-search').addEventListener('input', e => renderResults(e.target.value));
+  renderResults('');
+  document.getElementById('link-verb-search').focus();
+}
+
+// ── NEW CHAPTER FORM ──────────────────────────────────────────────────────────
+function showNewChapterForm() {
+  document.getElementById('chapters-screen').style.display = 'none';
+  const overlay = document.getElementById('chapter-new');
+  overlay.style.display = 'flex';
+  document.getElementById('chapter-new-number').value = '';
+  document.getElementById('chapter-new-name').value = '';
+  document.getElementById('chapter-new-number').focus();
+}
+
+function hideNewChapterForm() {
+  document.getElementById('chapter-new').style.display = 'none';
+  document.getElementById('chapters-screen').style.display = 'flex';
+}
+
+async function saveNewChapter() {
+  const number = parseInt(document.getElementById('chapter-new-number').value, 10);
+  const name = document.getElementById('chapter-new-name').value.trim();
+  if (!number) { showToast('Enter a chapter number'); return; }
+  const id = await saveChapter({ number, name, verbIds: [], createdAt: Date.now() });
+  hideNewChapterForm();
+  showChapterDetail(id);
+}
+
+// ── ADD VERB (custom) ───────────────────────────────────────────────────────────
 function showAddVerbScreen() {
   document.getElementById('browse-screen').style.display = 'none';
   const screen = document.getElementById('add-verb-screen');
@@ -609,8 +999,9 @@ async function renderStats() {
   };
 
   const allCards = await getDB().cards.toArray();
+  const verbCards = allCards.filter(c => !c.cardType);
   document.getElementById('tense-progress').innerHTML = TENSE_ORDER.map(tense => {
-    const tc = allCards.filter(c => c.tense === tense);
+    const tc = verbCards.filter(c => c.tense === tense);
     const mastered = tc.filter(c => c.reps >= 3).length;
     const pct = tc.length > 0 ? Math.round((mastered / tc.length) * 100) : 0;
     return `

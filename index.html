@@ -60,6 +60,64 @@
     <div class="loading"><div class="spinner"></div><p>Loading…</p></div>
   </div>
 
+  <!-- ── CHAPTERS DASHBOARD ───────────────────────────── -->
+  <div id="chapters-screen" class="screen">
+    <!-- populated by renderChapters() -->
+  </div>
+
+  <!-- ── CHAPTER DETAIL (overlay) ──────────────────────── -->
+  <div id="chapter-detail" class="screen" style="display:none">
+    <div class="verb-detail-header">
+      <button class="back-btn" id="chapter-detail-back">&#8592;</button>
+      <div>
+        <h2 id="chapter-detail-name">—</h2>
+        <p id="chapter-detail-meta" style="color:var(--text2);font-size:13px"></p>
+      </div>
+    </div>
+    <div id="chapter-detail-body" style="overflow-y:auto;flex:1;padding-bottom:24px"></div>
+  </div>
+
+  <!-- ── NEW CHAPTER (overlay) ─────────────────────────── -->
+  <div id="chapter-new" class="screen" style="display:none">
+    <div class="verb-detail-header">
+      <button class="back-btn" id="chapter-new-back">&#8592;</button>
+      <div><h2>New Chapter</h2></div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:16px;padding-top:8px">
+      <input class="form-input" id="chapter-new-number" type="number" min="1" placeholder="Chapter number" />
+      <input class="form-input" id="chapter-new-name" placeholder="Chapter name (optional)" autocomplete="off" />
+      <button class="btn btn-primary" id="chapter-new-save">Create Chapter</button>
+    </div>
+  </div>
+
+  <!-- ── ADD VOCAB WORD (overlay) ──────────────────────── -->
+  <div id="vocab-add" class="screen" style="display:none">
+    <div class="verb-detail-header">
+      <button class="back-btn" id="vocab-add-back">&#8592;</button>
+      <div>
+        <h2>Add Word</h2>
+        <p style="color:var(--text2);font-size:13px">Saves immediately — add as many as you like</p>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:14px;padding-top:4px;overflow-y:auto">
+      <div>
+        <label class="setting-label" style="display:block;margin-bottom:6px">Georgian</label>
+        <input class="form-input" id="vocab-georgian" placeholder="e.g. სახლი"
+          autocomplete="off" autocorrect="off" spellcheck="false" />
+      </div>
+      <div>
+        <label class="setting-label" style="display:block;margin-bottom:6px">English</label>
+        <input class="form-input" id="vocab-english" placeholder="e.g. house" autocomplete="off" />
+      </div>
+      <div>
+        <label class="setting-label" style="display:block;margin-bottom:6px">Word type</label>
+        <select class="setting-select" id="vocab-type"></select>
+      </div>
+      <button class="btn btn-primary" id="vocab-save-btn">Save Word</button>
+      <button class="btn btn-secondary" id="vocab-done-btn">Done adding words</button>
+    </div>
+  </div>
+
   <!-- ── BROWSE ────────────────────────────────────────── -->
   <div id="browse-screen" class="screen">
     <div class="browse-header">
@@ -98,7 +156,7 @@
     <div id="tense-sections" style="overflow-y:auto;flex:1;padding-bottom:16px"></div>
   </div>
 
-  <!-- ── SETTINGS ────────────────────────────────────────── -->
+  <!-- ── SETTINGS ──────────────────────────────────────── -->
   <div id="settings-screen" class="screen"></div>
 
   <!-- ── STATS ─────────────────────────────────────────── -->
@@ -159,6 +217,13 @@
         <polygon points="5 3 19 12 5 21 5 3"/>
       </svg>
       Study
+    </button>
+    <button data-screen="chapters">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z"/>
+        <path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/>
+      </svg>
+      Chapters
     </button>
     <button data-screen="browse">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

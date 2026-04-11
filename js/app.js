@@ -8,7 +8,6 @@ async function init() {
 
   // Load verb data into IndexedDB
   if (location.protocol === 'file:') {
-    // file:// blocks fetch — show a clear instruction
     document.getElementById('home-screen').innerHTML = `
       <div class="empty-state" style="flex:1">
         <div class="icon">⚠️</div>
@@ -46,13 +45,14 @@ async function init() {
     btn.addEventListener('click', () => {
       const s = btn.dataset.screen;
       showScreen(s);
-      if (s === 'home')   renderHome();
-      if (s === 'browse') renderBrowse();
-      if (s === 'stats')  renderStats();
+      if (s === 'home')     renderHome();
+      if (s === 'browse')   renderBrowse();
+      if (s === 'stats')    renderStats();
+      if (s === 'chapters') renderChapters();
     });
   });
 
-  // Study shortcut button (no data-screen, triggers session directly)
+  // Study shortcut button
   document.getElementById('nav-study').addEventListener('click', initStudy);
 
   // Start study button on home
@@ -68,6 +68,28 @@ async function init() {
 
   // Add verb back button
   document.getElementById('add-verb-back').addEventListener('click', hideAddVerbScreen);
+
+  // Chapter detail back button
+  document.getElementById('chapter-detail-back').addEventListener('click', hideChapterDetail);
+
+  // New chapter back button
+  document.getElementById('chapter-new-back').addEventListener('click', () => {
+    document.getElementById('chapter-new').style.display = 'none';
+    document.getElementById('chapters-screen').style.display = 'flex';
+  });
+
+  // New chapter save button
+  document.getElementById('chapter-new-save').addEventListener('click', saveNewChapter);
+  document.getElementById('chapter-new-number').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('chapter-new-name').focus();
+  });
+  document.getElementById('chapter-new-name').addEventListener('keydown', e => {
+    if (e.key === 'Enter') saveNewChapter();
+  });
+
+  // Vocab add back + done buttons
+  document.getElementById('vocab-add-back').addEventListener('click', hideAddVocabForm);
+  document.getElementById('vocab-done-btn').addEventListener('click', hideAddVocabForm);
 
   // Keyboard shortcuts for study screen
   document.addEventListener('keydown', e => {
