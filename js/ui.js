@@ -579,12 +579,9 @@ async function renderChapterDetail(chapterId) {
   const totalVerbCount = validVerbs.length + vocabVerbs.length;
 
   body.innerHTML = `
-    <div style="display:flex;gap:8px;margin-bottom:20px">
-      <button class="btn btn-primary" id="study-chapter-btn" style="flex:1">
-        Study${dueCount > 0 ? '  ·  ' + dueCount + ' due' : ''}
-      </button>
-      <button class="btn btn-secondary" id="sentences-btn" style="width:auto;padding:12px 16px;font-size:13px">Sentences</button>
-    </div>
+    <button class="btn btn-primary" id="study-chapter-btn" style="margin-bottom:20px">
+      Study Chapter${dueCount > 0 ? '  ·  ' + dueCount + ' due' : ''}
+    </button>
 
     <div class="section-header">
       <span class="section-title">Vocabulary (${vocabWords.length})</span>
@@ -625,7 +622,6 @@ async function renderChapterDetail(chapterId) {
     </div>`;
 
   document.getElementById('study-chapter-btn').onclick = () => initChapterStudy(chapterId);
-  document.getElementById('sentences-btn').onclick = () => showSentencePractice(chapterId);
   document.getElementById('chapter-edit-btn').onclick = () => startEditChapterName(chapterId, chapter);
   document.getElementById('scan-btn').onclick = () => showScanPage(chapterId);
   document.getElementById('add-word-btn').onclick = () => showAddVocabForm(chapterId);
@@ -1095,48 +1091,20 @@ async function renderStats() {
 
 // ── SENTENCE PRACTICE ─────────────────────────────────────────────────────────
 
-async function showSentencePractice(chapterId) {
-  const vocabItems = await getVocabByChapter(chapterId);
-  const chapterWords = vocabItems.map(v => v.georgian.trim()).filter(Boolean);
+function renderSentences() {
+  const all = window._tatoeba || [];
 
-  let sentences = [];
-  let isFallback = false;
+  const sentences = [...all].sort(() => Math.random() - 0.5);
 
-  if (window._tatoeba?.length) {
-    if (chapterWords.length > 0) {
-      sentences = window._tatoeba.filter(s => chapterWords.some(w => s.ka.includes(w)));
-    }
-    if (sentences.length === 0) {
-      sentences = [...window._tatoeba];
-      isFallback = true;
-    }
-  }
-
-  // Shuffle
-  for (let i = sentences.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [sentences[i], sentences[j]] = [sentences[j], sentences[i]];
-  }
-
-  document.getElementById('chapter-detail').style.display = 'none';
-  const overlay = document.getElementById('sentence-practice');
-  overlay.style.display = 'flex';
-
-  document.getElementById('sentence-practice-meta').textContent = isFallback
-    ? 'No matches for this chapter — showing all sentences'
-    : `${sentences.length} sentence${sentences.length !== 1 ? 's' : ''} with chapter words`;
-
-  document.getElementById('sentence-practice-back').onclick = () => {
-    overlay.style.display = 'none';
-    document.getElementById('chapter-detail').style.display = 'flex';
-  };
+  document.getElementById('sentence-practice-meta').textContent =
+    `${sentences.length} sentence${sentences.length !== 1 ? 's' : ''} — Georgian → English`;
 
   if (sentences.length === 0) {
     document.getElementById('sentence-card-area').innerHTML = `
       <div class="empty-state">
         <div class="icon">🔍</div>
-        <h2>No sentences found</h2>
-        <p>Run tatoeba_download.py to get sentence data.</p>
+        <h2>No sentences yet</h2>
+        <p>Run scraper/tatoeba_download.py to fetch sentence data.</p>
       </div>`;
     document.getElementById('sentence-nav').innerHTML = '';
     return;
@@ -1144,20 +1112,13 @@ async function showSentencePractice(chapterId) {
 
   let index = 0;
 
-  function renderSentenceCard() {
+  function renderCard() {
     const s = sentences[index];
-
-    let displayKa = s.ka;
-    chapterWords.forEach(w => {
-      if (s.ka.includes(w)) {
-        displayKa = displayKa.split(w).join(`<mark class="sentence-highlight">${w}</mark>`);
-      }
-    });
 
     document.getElementById('sentence-card-area').innerHTML = `
       <div class="sentence-card">
         <div class="sentence-progress">${index + 1} / ${sentences.length}</div>
-        <div class="sentence-ka">${displayKa}</div>
+        <div class="sentence-ka">${s.ka}</div>
         <div class="sentence-en" id="sentence-en" style="display:none">${s.en}</div>
       </div>`;
 
@@ -1172,11 +1133,11 @@ async function showSentencePractice(chapterId) {
     };
     document.getElementById('next-sentence-btn').onclick = () => {
       index = (index + 1) % sentences.length;
-      renderSentenceCard();
+      renderCard();
     };
   }
 
-  renderSentenceCard();
+  renderCard();
 }
 
 // ── OCR / SCAN PAGE ───────────────────────────────────────────────────────────

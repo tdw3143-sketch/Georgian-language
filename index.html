@@ -91,16 +91,11 @@
     </div>
   </div>
 
-  <!-- ── SENTENCE PRACTICE (overlay) ─────────────────── -->
-  <div id="sentence-practice" class="screen" style="display:none">
-    <div class="verb-detail-header">
-      <button class="back-btn" id="sentence-practice-back">&#8592;</button>
-      <div>
-        <h2>Sentences</h2>
-        <p id="sentence-practice-meta" style="color:var(--text2);font-size:13px"></p>
-      </div>
-    </div>
-    <div id="sentence-card-area" style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:0"></div>
+  <!-- ── SENTENCES ─────────────────────────────────────── -->
+  <div id="sentences-screen" class="screen">
+    <div class="screen-title" style="margin-bottom:4px">Sentences</div>
+    <p id="sentence-practice-meta" style="color:var(--text2);font-size:13px;margin-bottom:16px"></p>
+    <div id="sentence-card-area" style="flex:1;display:flex;flex-direction:column;justify-content:center"></div>
     <div class="sentence-nav" id="sentence-nav"></div>
   </div>
 
@@ -258,12 +253,11 @@
       </svg>
       Chapters
     </button>
-    <button data-screen="browse">
+    <button data-screen="sentences">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M4 19.5A2.5 2.5 0 016.5 17H20"/>
-        <path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/>
+        <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
       </svg>
-      Browse
+      Sentences
     </button>
     <button data-screen="stats">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

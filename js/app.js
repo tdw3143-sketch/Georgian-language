@@ -37,10 +37,10 @@ async function init() {
     btn.addEventListener('click', () => {
       const s = btn.dataset.screen;
       showScreen(s);
-      if (s === 'home')     renderHome();
-      if (s === 'browse')   renderBrowse();
-      if (s === 'stats')    renderStats();
-      if (s === 'chapters') renderChapters();
+      if (s === 'home')      renderHome();
+      if (s === 'sentences') renderSentences();
+      if (s === 'stats')     renderStats();
+      if (s === 'chapters')  renderChapters();
     });
   });
 
