@@ -1,4 +1,4 @@
-const CACHE = 'georgian-v16';
+const CACHE = 'georgian-v17';
 
 const BASE = self.location.pathname.replace(/\/sw\.js$/, '');
 
