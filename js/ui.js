@@ -1091,7 +1091,8 @@ async function renderStats() {
 
 // ── SENTENCE PRACTICE ─────────────────────────────────────────────────────────
 
-function renderSentences() {
+async function renderSentences() {
+  if (window._tatoebaReady) await window._tatoebaReady;
   const all = window._tatoeba || [];
 
   const sentences = [...all].sort(() => Math.random() - 0.5);

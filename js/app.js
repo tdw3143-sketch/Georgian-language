@@ -17,7 +17,7 @@ async function init() {
 
   // Load Tatoeba example sentences (fails silently if not yet downloaded)
   window._tatoeba = [];
-  fetch('data/tatoeba.json')
+  window._tatoebaReady = fetch('data/tatoeba.json')
     .then(r => r.ok ? r.json() : [])
     .then(data => { window._tatoeba = data; })
     .catch(() => {});
