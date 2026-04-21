@@ -8,6 +8,16 @@ let _pendingItem = null;     // verb object OR vocab object for the current card
 let _sessionMistakes = [];   // { card, item, typed, correct }
 let _currentChapterId = null;
 
+// ── EXAMPLE SENTENCES ─────────────────────────────────────────────────────────
+function findExample(georgianWord) {
+  if (!window._tatoeba?.length || !georgianWord) return null;
+  const word = georgianWord.trim();
+  const matches = window._tatoeba.filter(s => s.ka.includes(word));
+  if (!matches.length) return null;
+  // Pick randomly from up to the first 5 matches for variety
+  return matches[Math.floor(Math.random() * Math.min(matches.length, 5))];
+}
+
 // ── LEVENSHTEIN ────────────────────────────────────────────────────────────────
 function levenshtein(a, b) {
   const m = a.length, n = b.length;
@@ -354,6 +364,17 @@ function showRatingButtons(wasCorrect, correct, showCorrection = false) {
     area.appendChild(reveal);
   }
 
+  // Show a Tatoeba example sentence for vocab cards
+  if (_pendingCard?.cardType === 'vocab' && _pendingItem?.georgian) {
+    const ex = findExample(_pendingItem.georgian);
+    if (ex) {
+      const exEl = document.createElement('div');
+      exEl.className = 'example-sentence';
+      exEl.innerHTML = `<div class="example-label">Example</div><div class="example-ka">${ex.ka}</div><div class="example-en">${ex.en}</div>`;
+      area.appendChild(exEl);
+    }
+  }
+
   const btn = document.createElement('button');
   btn.className = 'btn btn-primary next-btn';
   btn.style.marginTop = '16px';
@@ -381,9 +402,6 @@ function renderSessionDone() {
       <button class="btn btn-secondary" id="more-btn">Study more</button>
       <button class="btn btn-primary" id="done-btn">Done</button>
     </div>`;
-  // Auto-save progress to Pi server after every session
-  syncToServer();
-
   if (missCount > 0) document.getElementById('review-mistakes-btn').onclick = renderMistakesReview;
   document.getElementById('more-btn').onclick = () => extendDailyLimit().then(initStudy);
   document.getElementById('done-btn').onclick = () => { showScreen('home'); renderHome(); };
@@ -668,7 +686,6 @@ function startEditChapterName(chapterId, chapter) {
     document.getElementById('chapter-detail-meta').textContent =
       'Chapter ' + chapter.number + (newName ? ' · Biliki' : '');
     showToast('Chapter renamed');
-    syncToServer();
   };
 
   input.addEventListener('keydown', e => { if (e.key === 'Enter') save(); });
@@ -1105,7 +1122,7 @@ async function runOcr(file, chapterId) {
   overlay.style.display = 'flex';
   document.getElementById('ocr-review-meta').textContent = 'Scanning…';
   document.getElementById('ocr-word-list').innerHTML =
-    '<div class="loading" style="flex:1"><div class="spinner"></div><p>Asking Claude…</p></div>';
+    '<div class="loading" style="flex:1"><div class="spinner"></div><p>Scanning…</p></div>';
   document.getElementById('ocr-save-btn').disabled = true;
   document.getElementById('ocr-review-back').onclick = () => {
     overlay.style.display = 'none';
@@ -1113,15 +1130,65 @@ async function runOcr(file, chapterId) {
   };
 
   try {
+    const apiKey = localStorage.getItem('anthropic_api_key');
+    if (!apiKey) throw new Error('No API key set — add it in Settings ⚙');
+
     const { b64, mediaType } = await fileToBase64(file);
-    const res = await fetch('/api/ocr', {
+
+    const OCR_PROMPT = `You are a Georgian language textbook OCR assistant.
+Extract vocabulary words from the photo of a textbook page.
+Return ONLY a JSON array — no markdown, no explanation, just the array.
+Each element must have exactly these keys:
+  "georgian"  — the Georgian word in Mkhedruli script
+  "english"   — the English translation (lowercase, without "to" for verbs)
+  "type"      — one of: noun, verb, adj, adv, phrase, other
+
+Rules:
+- Include every distinct word or phrase you can read.
+- If the page shows conjugation tables, extract only the infinitive/dictionary form.
+- If there are no vocabulary words, return [].
+- Return raw JSON only, e.g. [{"georgian":"სახლი","english":"house","type":"noun"}]`;
+
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ image: b64, mediaType }),
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify({
+        model: 'claude-opus-4-6',
+        max_tokens: 2048,
+        messages: [{ role: 'user', content: [
+          { type: 'image', source: { type: 'base64', media_type: mediaType, data: b64 } },
+          { type: 'text', text: OCR_PROMPT },
+        ]}],
+      }),
     });
+
     const json = await res.json();
-    if (!res.ok) throw new Error(json.error || 'Server error');
-    renderOcrReview(json.words || [], chapterId);
+    if (!res.ok) throw new Error(json.error?.message || `API error ${res.status}`);
+
+    let raw = json.content[0].text.trim();
+    if (raw.startsWith('```')) {
+      raw = raw.includes('\n') ? raw.slice(raw.indexOf('\n') + 1) : raw.slice(3);
+      const end = raw.lastIndexOf('```');
+      if (end !== -1) raw = raw.slice(0, end).trim();
+    }
+
+    const validTypes = new Set(['noun', 'verb', 'adj', 'adv', 'phrase', 'other']);
+    let parsed;
+    try { parsed = JSON.parse(raw); } catch { parsed = []; }
+    const words = (Array.isArray(parsed) ? parsed : [])
+      .filter(w => w?.georgian && w?.english)
+      .map(w => ({
+        georgian: String(w.georgian).trim(),
+        english: String(w.english).trim().toLowerCase(),
+        type: validTypes.has(w.type) ? w.type : 'other',
+      }));
+
+    renderOcrReview(words, chapterId);
   } catch (e) {
     document.getElementById('ocr-review-meta').textContent = 'Error';
     document.getElementById('ocr-word-list').innerHTML = `
@@ -1238,6 +1305,14 @@ async function renderSettings() {
         </select>
         <p class="setting-hint">Higher = longer gaps between reviews for new cards</p>
       </div>
+      <div class="setting-group">
+        <label class="setting-label">Anthropic API key</label>
+        <input type="password" id="set-api-key" class="form-input"
+          placeholder="sk-ant-…"
+          value="${localStorage.getItem('anthropic_api_key') || ''}"
+          autocomplete="off" autocorrect="off" spellcheck="false" />
+        <p class="setting-hint">Required for photo scanning (OCR). Get yours at console.anthropic.com</p>
+      </div>
       <button class="btn btn-primary" id="save-settings-btn">Save</button>
     </div>`;
 
@@ -1263,6 +1338,9 @@ async function renderSettings() {
     };
     await saveSettings(newSettings);
     _studyMode = newSettings.studyMode;
+    const apiKey = document.getElementById('set-api-key').value.trim();
+    if (apiKey) localStorage.setItem('anthropic_api_key', apiKey);
+    else localStorage.removeItem('anthropic_api_key');
     showToast('Settings saved');
     showScreen('home');
     renderHome();

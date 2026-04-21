@@ -295,6 +295,17 @@ nav button svg { width: 22px; height: 22px; }
 }
 .answer-reveal .answer-note { font-size: 13px; color: var(--text2); margin-top: 6px; }
 
+.example-sentence {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-top: 12px;
+  border-left: 3px solid var(--accent2);
+}
+.example-label { font-size: 11px; color: var(--accent2); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+.example-ka { font-size: 15px; color: var(--text); line-height: 1.4; margin-bottom: 4px; }
+.example-en { font-size: 13px; color: var(--text2); line-height: 1.4; }
+
 /* ── BROWSE ── */
 .search-input {
   background: var(--surface);

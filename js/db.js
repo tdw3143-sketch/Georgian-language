@@ -163,35 +163,5 @@ async function deleteVocabItem(id) {
   await db.vocab.delete(id);
 }
 
-// ── SERVER SYNC ───────────────────────────────────────────────────────────────
-
-async function syncToServer() {
-  try {
-    const json = await exportData();
-    await fetch('/api/progress', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: json,
-    });
-  } catch (e) {
-    console.warn('Sync to server failed:', e);
-  }
-}
-
-// Returns true if data was restored from server
-async function syncFromServer() {
-  try {
-    const localCards = await getDB().cards.count();
-    if (localCards > 0) return false; // already have local data, don't overwrite
-    const res = await fetch('/api/progress');
-    if (!res.ok) return false;
-    const data = await res.json();
-    if (data.cards?.length || data.chapters?.length || data.vocab?.length) {
-      await importData(JSON.stringify(data));
-      return true;
-    }
-  } catch (e) {
-    console.warn('Sync from server failed:', e);
-  }
-  return false;
-}
+async function syncToServer() {}
+async function syncFromServer() { return false; }

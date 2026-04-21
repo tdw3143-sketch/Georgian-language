@@ -7,21 +7,6 @@ async function init() {
   }
 
   // Load verb data into IndexedDB
-  if (location.protocol === 'file:') {
-    document.getElementById('home-screen').innerHTML = `
-      <div class="empty-state" style="flex:1">
-        <div class="icon">⚠️</div>
-        <h2>One more step</h2>
-        <p>Open the app via the server so it can load verb data:</p>
-        <p style="margin-top:8px;background:var(--surface2);padding:12px 16px;border-radius:12px;font-family:monospace;font-size:13px">
-          python serve.py
-        </p>
-        <p>Then open <strong>http://localhost:8000</strong> in your browser.</p>
-      </div>`;
-    document.querySelector('nav').style.display = 'none';
-    return;
-  }
-
   try {
     const res = await fetch('data/verbs.json');
     const verbs = await res.json();
@@ -30,9 +15,12 @@ async function init() {
     console.warn('Could not load verbs.json:', e);
   }
 
-  // Restore progress from Pi server if local DB is empty
-  const restored = await syncFromServer();
-  if (restored) showToast('Progress restored from server ✓');
+  // Load Tatoeba example sentences (fails silently if not yet downloaded)
+  window._tatoeba = [];
+  fetch('data/tatoeba.json')
+    .then(r => r.ok ? r.json() : [])
+    .then(data => { window._tatoeba = data; })
+    .catch(() => {});
 
   // Load settings (study mode default)
   const _initSettings = await getSettings();

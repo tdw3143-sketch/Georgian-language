@@ -1,29 +1,25 @@
-const CACHE = 'georgian-v13';
+const CACHE = 'georgian-v16';
 
-// Works both at root (localhost) and a subpath (GitHub Pages)
 const BASE = self.location.pathname.replace(/\/sw\.js$/, '');
 
-const STATIC_ASSETS = [
-  BASE + '/',
-  BASE + '/index.html',
-  BASE + '/data/verbs.json',
+// Only truly static third-party assets are pre-cached
+const PRECACHE = [
   'https://cdn.jsdelivr.net/npm/dexie@3/dist/dexie.min.js',
 ];
 
-// JS and CSS: network-first (always get fresh code, fall back to cache offline)
-const CODE_ASSETS = [
-  BASE + '/css/style.css',
-  BASE + '/js/srs.js',
-  BASE + '/js/db.js',
-  BASE + '/js/study.js',
-  BASE + '/js/ui.js',
-  BASE + '/js/app.js',
+// These are always fetched from the network first.
+// On failure (offline) the cached copy is used instead.
+// This prevents a broken server response from ever being served permanently.
+const NETWORK_FIRST = [
+  '/index.html', '/', '/sw.js',
+  '/js/', '/css/',
+  '/data/verbs.json', '/data/tatoeba.json',
 ];
 
 self.addEventListener('install', e => {
   e.waitUntil(
     caches.open(CACHE)
-      .then(c => Promise.allSettled([...STATIC_ASSETS, ...CODE_ASSETS].map(a => c.add(a))))
+      .then(c => Promise.allSettled(PRECACHE.map(a => c.add(a))))
       .then(() => self.skipWaiting())
   );
 });
@@ -37,36 +33,31 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
-  const url = e.request.url;
+  const url = new URL(e.request.url);
 
-  // Network-first for JS and CSS
-  const isCode = CODE_ASSETS.some(a => url.endsWith(a) || url.includes('/js/') || url.includes('/css/'));
-  if (isCode) {
+  const isNetworkFirst = NETWORK_FIRST.some(p => url.pathname.includes(p));
+
+  if (isNetworkFirst) {
     e.respondWith(
       fetch(e.request)
         .then(res => {
           if (res.ok) {
-            const clone = res.clone();
-            caches.open(CACHE).then(c => c.put(e.request, clone));
+            caches.open(CACHE).then(c => c.put(e.request, res.clone()));
           }
           return res;
         })
         .catch(() => caches.match(e.request))
     );
-    return;
+  } else {
+    // Cache-first for everything else (CDN assets, icons, etc.)
+    e.respondWith(
+      caches.match(e.request).then(cached => {
+        if (cached) return cached;
+        return fetch(e.request).then(res => {
+          if (res.ok) caches.open(CACHE).then(c => c.put(e.request, res.clone()));
+          return res;
+        });
+      })
+    );
   }
-
-  // Cache-first for everything else
-  e.respondWith(
-    caches.match(e.request).then(cached => {
-      if (cached) return cached;
-      return fetch(e.request).then(res => {
-        if (res.ok) {
-          const clone = res.clone();
-          caches.open(CACHE).then(c => c.put(e.request, clone));
-        }
-        return res;
-      });
-    })
-  );
 });
