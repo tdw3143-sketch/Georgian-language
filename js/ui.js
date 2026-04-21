@@ -8,16 +8,6 @@ let _pendingItem = null;     // verb object OR vocab object for the current card
 let _sessionMistakes = [];   // { card, item, typed, correct }
 let _currentChapterId = null;
 
-// ── EXAMPLE SENTENCES ─────────────────────────────────────────────────────────
-function findExample(georgianWord) {
-  if (!window._tatoeba?.length || !georgianWord) return null;
-  const word = georgianWord.trim();
-  const matches = window._tatoeba.filter(s => s.ka.includes(word));
-  if (!matches.length) return null;
-  // Pick randomly from up to the first 5 matches for variety
-  return matches[Math.floor(Math.random() * Math.min(matches.length, 5))];
-}
-
 // ── LEVENSHTEIN ────────────────────────────────────────────────────────────────
 function levenshtein(a, b) {
   const m = a.length, n = b.length;
@@ -362,17 +352,6 @@ function showRatingButtons(wasCorrect, correct, showCorrection = false) {
     reveal.className = 'answer-reveal';
     reveal.innerHTML = `<div class="correct-answer">${correct}</div><div class="answer-note">${showCorrection ? 'Correct form' : 'Correct answer'}</div>`;
     area.appendChild(reveal);
-  }
-
-  // Show a Tatoeba example sentence for vocab cards
-  if (_pendingCard?.cardType === 'vocab' && _pendingItem?.georgian) {
-    const ex = findExample(_pendingItem.georgian);
-    if (ex) {
-      const exEl = document.createElement('div');
-      exEl.className = 'example-sentence';
-      exEl.innerHTML = `<div class="example-label">Example</div><div class="example-ka">${ex.ka}</div><div class="example-en">${ex.en}</div>`;
-      area.appendChild(exEl);
-    }
   }
 
   const btn = document.createElement('button');
