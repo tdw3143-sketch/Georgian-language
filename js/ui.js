@@ -127,6 +127,9 @@ function renderStudyCard() {
 
   document.getElementById('exit-study').onclick = () => { showScreen('home'); renderHome(); };
 
+  // Round 1 (never seen) → multiple choice; Round 2+ → typing
+  _studyMode = card.reps === 0 ? 'choice' : 'type';
+
   if (card.cardType === 'vocab') {
     getVocabItem(card.vocabId).then(vocab => {
       if (!vocab) { submitRating(0).then(renderStudyCard); return; }
@@ -158,15 +161,7 @@ function renderVerbStudyCard(card, verb, correct) {
       <div class="infinitive">${verb.conjugations?.present?.['3sg'] || verb.infinitive}</div>
       <div class="prompt">How do you say this in Georgian?</div>
     </div>
-    <div class="mode-toggle">
-      <button data-mode="choice" class="${_studyMode === 'choice' ? 'active' : ''}">Multiple choice</button>
-      <button data-mode="type"   class="${_studyMode === 'type'   ? 'active' : ''}">Type it</button>
-    </div>
     <div id="answer-area" class="answer-area"></div>`;
-
-  document.querySelectorAll('.mode-toggle button').forEach(btn => {
-    btn.onclick = () => { _studyMode = btn.dataset.mode; renderStudyCard(); };
-  });
 
   if (_studyMode === 'choice') renderChoiceMode(card, verb, correct);
   else renderTypeMode(card, verb, correct);
@@ -188,15 +183,7 @@ function renderVocabStudyCard(card, vocab) {
       <div class="infinitive">${prompt}</div>
       <div class="prompt">${dirLabel}</div>
     </div>
-    <div class="mode-toggle">
-      <button data-mode="choice" class="${_studyMode === 'choice' ? 'active' : ''}">Multiple choice</button>
-      <button data-mode="type"   class="${_studyMode === 'type'   ? 'active' : ''}">Type it</button>
-    </div>
     <div id="answer-area" class="answer-area"></div>`;
-
-  document.querySelectorAll('.mode-toggle button').forEach(btn => {
-    btn.onclick = () => { _studyMode = btn.dataset.mode; renderStudyCard(); };
-  });
 
   if (_studyMode === 'choice') renderChoiceMode(card, vocab, correct);
   else renderTypeMode(card, vocab, correct);
@@ -463,7 +450,7 @@ async function renderChapters() {
     let masteredVocab = 0;
     for (const item of vocabItems) {
       const card = await getCard(`vocab__${item.id}__g2e`);
-      if (card && card.reps >= 3) masteredVocab++;
+      if (card && card.reps >= 1) masteredVocab++;
     }
     const vocabTotal = vocabItems.length;
     const vocabPct = vocabTotal > 0 ? Math.round((masteredVocab / vocabTotal) * 100) : 0;
@@ -542,7 +529,7 @@ async function renderChapterDetail(chapterId) {
   const dueCount = dueVocab.filter(Boolean).length + verbIds.length;
 
   const vocabItemRow = (item) => {
-    const mastered = vocabCardsData[vocabItems.indexOf(item)]?.reps >= 3;
+    const mastered = vocabCardsData[vocabItems.indexOf(item)]?.reps >= 1;
     return `
       <div class="vocab-item">
         <div class="vocab-item-words">
