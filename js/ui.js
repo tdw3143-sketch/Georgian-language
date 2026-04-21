@@ -1095,50 +1095,111 @@ async function renderSentences() {
   if (window._tatoebaReady) await window._tatoebaReady;
   const all = window._tatoeba || [];
 
-  const sentences = [...all].sort(() => Math.random() - 0.5);
+  const cardArea = document.getElementById('sentence-card-area');
+  const nav      = document.getElementById('sentence-nav');
+  const meta     = document.getElementById('sentence-practice-meta');
 
-  document.getElementById('sentence-practice-meta').textContent =
-    `${sentences.length} sentence${sentences.length !== 1 ? 's' : ''} — Georgian → English`;
-
-  if (sentences.length === 0) {
-    document.getElementById('sentence-card-area').innerHTML = `
+  if (all.length === 0) {
+    meta.textContent = '';
+    cardArea.innerHTML = `
       <div class="empty-state">
         <div class="icon">🔍</div>
         <h2>No sentences yet</h2>
         <p>Run scraper/tatoeba_download.py to fetch sentence data.</p>
       </div>`;
-    document.getElementById('sentence-nav').innerHTML = '';
+    nav.innerHTML = '';
     return;
   }
 
-  let index = 0;
+  const studied   = await getStudiedKas();
+  const total     = all.length;
+  const remaining = all.filter(s => !studied.has(s.ka));
+
+  if (remaining.length === 0) {
+    renderSentencesComplete(total, meta, cardArea, nav);
+    return;
+  }
+
+  // Shuffle remaining
+  const queue = [...remaining].sort(() => Math.random() - 0.5);
+  let studiedCount = studied.size;
+  let queueIndex   = 0;
+
+  function updateMeta() {
+    const pct = Math.round((studiedCount / total) * 100);
+    meta.textContent = `${studiedCount} / ${total} studied  ·  ${pct}%`;
+  }
 
   function renderCard() {
-    const s = sentences[index];
+    if (queueIndex >= queue.length) {
+      renderSentencesComplete(total, meta, cardArea, nav);
+      return;
+    }
 
-    document.getElementById('sentence-card-area').innerHTML = `
+    const s = queue[queueIndex];
+    updateMeta();
+
+    // Build 4 choices: correct + 3 random distractors
+    const distractors = all
+      .filter(x => x.en !== s.en)
+      .sort(() => Math.random() - 0.5)
+      .slice(0, 3)
+      .map(x => x.en);
+    const options = [s.en, ...distractors].sort(() => Math.random() - 0.5);
+
+    cardArea.innerHTML = `
       <div class="sentence-card">
-        <div class="sentence-progress">${index + 1} / ${sentences.length}</div>
+        <div class="sentence-progress">${studiedCount} / ${total}</div>
         <div class="sentence-ka">${s.ka}</div>
-        <div class="sentence-en" id="sentence-en" style="display:none">${s.en}</div>
-      </div>`;
+      </div>
+      <div class="choice-grid vocab-choices" id="sentence-choices" style="margin-top:16px"></div>`;
 
-    document.getElementById('sentence-nav').innerHTML = `
-      <button class="btn btn-secondary" id="reveal-btn">Show translation</button>
-      <button class="btn btn-primary" id="next-sentence-btn" style="display:none">Next</button>`;
+    nav.innerHTML = '';
 
-    document.getElementById('reveal-btn').onclick = () => {
-      document.getElementById('sentence-en').style.display = 'block';
-      document.getElementById('reveal-btn').style.display = 'none';
-      document.getElementById('next-sentence-btn').style.display = 'block';
-    };
-    document.getElementById('next-sentence-btn').onclick = () => {
-      index = (index + 1) % sentences.length;
-      renderCard();
-    };
+    const grid = document.getElementById('sentence-choices');
+    options.forEach(opt => {
+      const btn = document.createElement('button');
+      btn.className = 'choice-btn';
+      btn.textContent = opt;
+      btn.onclick = async () => {
+        const correct = opt === s.en;
+        grid.querySelectorAll('.choice-btn').forEach(b => {
+          b.disabled = true;
+          if (b.textContent === s.en) b.classList.add('reveal');
+        });
+        if (!correct) btn.classList.add('wrong');
+
+        if (correct) {
+          await markSentenceStudied(s.ka);
+          studiedCount++;
+        }
+
+        nav.innerHTML = `<button class="btn btn-primary" id="next-sentence-btn" style="margin-top:8px">Next</button>`;
+        document.getElementById('next-sentence-btn').onclick = () => {
+          queueIndex++;
+          renderCard();
+        };
+      };
+      grid.appendChild(btn);
+    });
   }
 
   renderCard();
+}
+
+function renderSentencesComplete(total, meta, cardArea, nav) {
+  meta.textContent = `${total} / ${total} studied  ·  100%`;
+  cardArea.innerHTML = `
+    <div class="empty-state">
+      <div class="icon">🎉</div>
+      <h2>100% Complete!</h2>
+      <p>You've practiced all ${total} sentences.</p>
+    </div>`;
+  nav.innerHTML = `<button class="btn btn-secondary" id="reset-sentences-btn">Start over</button>`;
+  document.getElementById('reset-sentences-btn').onclick = async () => {
+    await resetSentenceProgress();
+    renderSentences();
+  };
 }
 
 // ── OCR / SCAN PAGE ───────────────────────────────────────────────────────────

@@ -15,8 +15,29 @@ function getDB() {
     chapters: '++id, number',
     vocab:    '++id, chapterId',
   });
+  db.version(3).stores({
+    cards:            'id, verbId, vocabId, tense, person, nextReview, introduced',
+    verbs:            'id, frequency_rank',
+    meta:             'key',
+    chapters:         '++id, number',
+    vocab:            '++id, chapterId',
+    sentenceProgress: 'ka',
+  });
   window._db = db;
   return db;
+}
+
+async function markSentenceStudied(ka) {
+  await getDB().sentenceProgress.put({ ka });
+}
+
+async function getStudiedKas() {
+  const rows = await getDB().sentenceProgress.toArray();
+  return new Set(rows.map(r => r.ka));
+}
+
+async function resetSentenceProgress() {
+  await getDB().sentenceProgress.clear();
 }
 
 async function loadVerbsIntoDB(verbs) {
