@@ -579,9 +579,12 @@ async function renderChapterDetail(chapterId) {
   const totalVerbCount = validVerbs.length + vocabVerbs.length;
 
   body.innerHTML = `
-    <button class="btn btn-primary" id="study-chapter-btn" style="margin-bottom:20px">
-      Study Chapter${dueCount > 0 ? '  ·  ' + dueCount + ' due' : ''}
-    </button>
+    <div style="display:flex;gap:8px;margin-bottom:20px">
+      <button class="btn btn-primary" id="study-chapter-btn" style="flex:1">
+        Study${dueCount > 0 ? '  ·  ' + dueCount + ' due' : ''}
+      </button>
+      <button class="btn btn-secondary" id="sentences-btn" style="width:auto;padding:12px 16px;font-size:13px">Sentences</button>
+    </div>
 
     <div class="section-header">
       <span class="section-title">Vocabulary (${vocabWords.length})</span>
@@ -622,6 +625,7 @@ async function renderChapterDetail(chapterId) {
     </div>`;
 
   document.getElementById('study-chapter-btn').onclick = () => initChapterStudy(chapterId);
+  document.getElementById('sentences-btn').onclick = () => showSentencePractice(chapterId);
   document.getElementById('chapter-edit-btn').onclick = () => startEditChapterName(chapterId, chapter);
   document.getElementById('scan-btn').onclick = () => showScanPage(chapterId);
   document.getElementById('add-word-btn').onclick = () => showAddVocabForm(chapterId);
@@ -1087,6 +1091,92 @@ async function renderStats() {
         <span class="pct">${pct}%</span>
       </div>`;
   }).join('');
+}
+
+// ── SENTENCE PRACTICE ─────────────────────────────────────────────────────────
+
+async function showSentencePractice(chapterId) {
+  const vocabItems = await getVocabByChapter(chapterId);
+  const chapterWords = vocabItems.map(v => v.georgian.trim()).filter(Boolean);
+
+  let sentences = [];
+  let isFallback = false;
+
+  if (window._tatoeba?.length) {
+    if (chapterWords.length > 0) {
+      sentences = window._tatoeba.filter(s => chapterWords.some(w => s.ka.includes(w)));
+    }
+    if (sentences.length === 0) {
+      sentences = [...window._tatoeba];
+      isFallback = true;
+    }
+  }
+
+  // Shuffle
+  for (let i = sentences.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [sentences[i], sentences[j]] = [sentences[j], sentences[i]];
+  }
+
+  document.getElementById('chapter-detail').style.display = 'none';
+  const overlay = document.getElementById('sentence-practice');
+  overlay.style.display = 'flex';
+
+  document.getElementById('sentence-practice-meta').textContent = isFallback
+    ? 'No matches for this chapter — showing all sentences'
+    : `${sentences.length} sentence${sentences.length !== 1 ? 's' : ''} with chapter words`;
+
+  document.getElementById('sentence-practice-back').onclick = () => {
+    overlay.style.display = 'none';
+    document.getElementById('chapter-detail').style.display = 'flex';
+  };
+
+  if (sentences.length === 0) {
+    document.getElementById('sentence-card-area').innerHTML = `
+      <div class="empty-state">
+        <div class="icon">🔍</div>
+        <h2>No sentences found</h2>
+        <p>Run tatoeba_download.py to get sentence data.</p>
+      </div>`;
+    document.getElementById('sentence-nav').innerHTML = '';
+    return;
+  }
+
+  let index = 0;
+
+  function renderSentenceCard() {
+    const s = sentences[index];
+
+    let displayKa = s.ka;
+    chapterWords.forEach(w => {
+      if (s.ka.includes(w)) {
+        displayKa = displayKa.split(w).join(`<mark class="sentence-highlight">${w}</mark>`);
+      }
+    });
+
+    document.getElementById('sentence-card-area').innerHTML = `
+      <div class="sentence-card">
+        <div class="sentence-progress">${index + 1} / ${sentences.length}</div>
+        <div class="sentence-ka">${displayKa}</div>
+        <div class="sentence-en" id="sentence-en" style="display:none">${s.en}</div>
+      </div>`;
+
+    document.getElementById('sentence-nav').innerHTML = `
+      <button class="btn btn-secondary" id="reveal-btn">Show translation</button>
+      <button class="btn btn-primary" id="next-sentence-btn" style="display:none">Next</button>`;
+
+    document.getElementById('reveal-btn').onclick = () => {
+      document.getElementById('sentence-en').style.display = 'block';
+      document.getElementById('reveal-btn').style.display = 'none';
+      document.getElementById('next-sentence-btn').style.display = 'block';
+    };
+    document.getElementById('next-sentence-btn').onclick = () => {
+      index = (index + 1) % sentences.length;
+      renderSentenceCard();
+    };
+  }
+
+  renderSentenceCard();
 }
 
 // ── OCR / SCAN PAGE ───────────────────────────────────────────────────────────
